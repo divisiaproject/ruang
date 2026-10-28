@@ -5,11 +5,11 @@ import express, { type NextFunction, type Request, type Response } from 'express
 import { alwaysHiddenFor, excludedFor, FolderError, listFolder, publicAgent, readFolderFile, resolveAgentFolders } from './folders.js'
 import { installAccess } from './access.js'
 import { installAgentWrites } from './agents-write.js'
-import { redactActivity, redactCalendar, redactDashboard, redactLogs, redactMemory, redactOffice, redactTasks, redactUsage } from './privacy.js'
+import { redactActivity, redactCalendar, redactDashboard, redactLogs, redactMemory, redactOffice, redactStuck, redactTasks, redactUsage } from './privacy.js'
 import { installProfileLock, isHidden, type Privacy } from './profile-lock.js'
 import { API_VERSION } from './api-version.js'
 import { collectMemory } from './memory.js'
-import { getActivity, getBoardStats, getCalendar, getChannels, getCommandLog, getDashboard, getKnowledge, getLogs, getOffice, getSnapshot, getTaskBoard, getTaskDetail, getUsage } from './mission-control.js'
+import { getActivity, getBoardStats, getCalendar, getChannels, getCommandLog, getDashboard, getKnowledge, getLogs, getOffice, getSnapshot, getStuckTasks, getTaskBoard, getTaskDetail, getUsage } from './mission-control.js'
 
 const HOST = '127.0.0.1'
 // MISSION_CONTROL_PORT is the pre-rename name, still honoured.
@@ -44,6 +44,7 @@ const routes: Record<string, (now: number, privacy: Privacy) => Promise<unknown>
   '/api/dashboard': async (now, privacy) => redactDashboard(await getDashboard(now), privacy),
   '/api/tasks': async (now, privacy) => redactTasks(await getTaskBoard(now), privacy),
   '/api/board-stats': getBoardStats,
+  '/api/stuck': async (now, privacy) => redactStuck(await getStuckTasks(now), privacy),
   '/api/calendar': async (now, privacy) => redactCalendar(await getCalendar(now), privacy),
   '/api/activity': async (now, privacy) => redactActivity(await getActivity(now), privacy),
   '/api/knowledge': getKnowledge,

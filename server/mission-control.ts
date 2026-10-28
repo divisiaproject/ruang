@@ -23,7 +23,7 @@ export interface RuntimeSnapshot {
   openCode: Source<string>
   fetchedAt: string
 }
-export interface Task { title: string; status: string; id?: string; assignee?: string; priority?: number; board?: string; /** Belongs to a locked agent (profile lock): the title is withheld. */ private?: boolean }
+export interface Task { title: string; status: string; id?: string; assignee?: string; priority?: number; board?: string; /** ISO time the task was created (`created_at`, epoch seconds in the CLI). */ createdAt?: string; /** Belongs to a locked agent (profile lock): the title is withheld. */ private?: boolean }
 export interface KanbanBoard { slug: string; name: string; current: boolean; total: number }
 /** `agent` is the Hermes profile the job belongs to (cron jobs are stored per profile). */
 export interface ScheduledJob { /** Belongs to a locked agent (profile lock): the name is withheld. */ private?: boolean; name: string; schedule: string; id?: string; nextRun?: string; overdue?: boolean; status?: string; repeat?: string; lastRun?: string; lastRunOk?: boolean; agent?: string }
@@ -227,6 +227,51 @@ export function parseStats(output: string): KanbanStatusCounts {
   return { byStatus, total }
 }
 
+/** A task the owner should look at today, with the reason it surfaced. */
+export interface StuckTask {
+  id?: string
+  title: string
+  status: string
+  assignee?: string
+  board?: string
+  /** `blocked`: explicitly blocked. `waiting`: sat in ready past the threshold. */
+  reason: 'blocked' | 'waiting'
+  /** Whole hours since `createdAt`, when the task carries a creation time. */
+  ageHours?: number
+}
+
+/** Ready tasks older than this are surfaced as waiting, not just blocked ones. */
+export const STUCK_READY_HOURS = 48
+
+/**
+ * Tasks that need attention: anything `blocked`, plus anything still in `ready`
+ * older than `thresholdHours`. `ready` means "dispatchable now", so a task sitting
+ * there is work nobody picked up — the case Kanban's status counts cannot show.
+ *
+ * A task with no `createdAt` is never aged (Hermes always sends `created_at`, but
+ * guessing an age would be worse than leaving it out). Blocked tasks always
+ * surface regardless of age.
+ */
+export function stuckTasks(tasks: Task[], now: number, thresholdHours = STUCK_READY_HOURS): StuckTask[] {
+  const stuck: StuckTask[] = []
+  for (const task of tasks) {
+    const status = task.status.toLowerCase()
+    const ageHours = task.createdAt ? Math.max(0, (now - Date.parse(task.createdAt)) / 3_600_000) : undefined
+    const base = {
+      title: task.title,
+      status,
+      ...(task.id ? { id: task.id } : {}),
+      ...(task.assignee ? { assignee: task.assignee } : {}),
+      ...(task.board ? { board: task.board } : {}),
+      ...(ageHours !== undefined && Number.isFinite(ageHours) ? { ageHours: Math.floor(ageHours) } : {}),
+    }
+    if (status === 'blocked') stuck.push({ ...base, reason: 'blocked' })
+    else if (status === 'ready' && ageHours !== undefined && Number.isFinite(ageHours) && ageHours >= thresholdHours) stuck.push({ ...base, reason: 'waiting' })
+  }
+  // Blocked first: an explicit block is a stronger signal than a slow queue.
+  return stuck.sort((a, b) => (a.reason === b.reason ? (b.ageHours ?? 0) - (a.ageHours ?? 0) : a.reason === 'blocked' ? -1 : 1))
+}
+
 export function parseTasks(output: string): Task[] {
   const parsed = jsonPayload(output)
   const list = Array.isArray(parsed) ? parsed : parsed && typeof parsed === 'object' && Array.isArray((parsed as Record<string, unknown>).tasks) ? (parsed as { tasks: unknown[] }).tasks : undefined
@@ -239,7 +284,8 @@ export function parseTasks(output: string): Task[] {
     const id = text(record.id)
     const assignee = text(record.assignee) ?? text(record.assignedTo) ?? text(record.owner)
     const priority = typeof record.priority === 'number' && Number.isFinite(record.priority) ? record.priority : undefined
-    return title && status ? [{ title, status: status.toLowerCase(), ...(id && /^[A-Za-z0-9_-]+$/.test(id) ? { id } : {}), ...(assignee ? { assignee } : {}), ...(priority !== undefined ? { priority } : {}) }] : []
+    const createdAt = epoch(record.created_at) ?? epoch(record.createdAt)
+    return title && status ? [{ title, status: status.toLowerCase(), ...(id && /^[A-Za-z0-9_-]+$/.test(id) ? { id } : {}), ...(assignee ? { assignee } : {}), ...(priority !== undefined ? { priority } : {}), ...(createdAt ? { createdAt } : {}) }] : []
   })
   if (list.length > 0 && tasks.length === 0) throw new Error('Unrecognized Kanban output.')
   return tasks
@@ -1076,6 +1122,17 @@ export function getTaskBoard(now = Date.now()): Promise<TaskBoardSnapshot> { ret
 
 /** Per-board `hermes kanban stats` counts, keyed by board slug. */
 export function getBoardStats(now = Date.now()): Promise<Source<Record<string, KanbanStatusCounts>>> { return boardStatsSource(now) }
+
+/**
+ * Blocked tasks plus ready tasks older than STUCK_READY_HOURS, across every board.
+ * Derived from the same task list the Task Board shows, so the two never disagree.
+ */
+export async function getStuckTasks(now = Date.now()): Promise<Source<StuckTask[]> & { thresholdHours: number; fetchedAt: string }> {
+  const board = await getTaskBoard(now)
+  const fetchedAt = new Date().toISOString()
+  if (board.tasks.availability !== 'available') return { availability: board.tasks.availability, data: [], error: board.tasks.error, thresholdHours: STUCK_READY_HOURS, fetchedAt }
+  return { availability: 'available', data: stuckTasks(board.tasks.data, now), thresholdHours: STUCK_READY_HOURS, fetchedAt }
+}
 export function getCalendar(now = Date.now()): Promise<CalendarSnapshot> { return calendarSource(now) }
 export function getActivity(now = Date.now()): Promise<ActivitySnapshot> { return activitySource(now) }
 export function getKnowledge(now = Date.now()): Promise<KnowledgeSnapshot> { return knowledgeSource(now) }
