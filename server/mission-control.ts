@@ -190,6 +190,43 @@ export function jsonPayload(output: string): unknown {
   return JSON.parse(start > 0 ? output.slice(start) : output)
 }
 
+/** A `hermes kanban stats` reading. Counts are keyed by canonical Hermes status. */
+export interface KanbanStatusCounts {
+  byStatus: Record<string, number>
+  total: number
+}
+
+/**
+ * `hermes kanban stats` prints plain text, not JSON:
+ *
+ *     By status:
+ *       triage    0
+ *       todo      0
+ *       blocked   0
+ *
+ * Later sections (per-assignee counts, oldest-ready age) may follow; only the
+ * status block is parsed here because that is the block whose shape is known.
+ * Unknown future statuses are kept rather than dropped.
+ */
+export function parseStats(output: string): KanbanStatusCounts {
+  const lines = output.split('\n')
+  const start = lines.findIndex((line) => /^\s*by status\s*:?\s*$/i.test(line))
+  if (start === -1) throw new Error('Kanban stats output had no "By status" section.')
+  const byStatus: Record<string, number> = {}
+  for (const line of lines.slice(start + 1)) {
+    if (!line.trim()) break
+    if (/^\S/.test(line)) break
+    const match = /^\s+([a-z][a-z_-]*)\s+(\d+)\s*$/i.exec(line)
+    if (!match) break
+    const status = match[1].toLowerCase()
+    const count = Number.parseInt(match[2], 10)
+    if (Number.isFinite(count)) byStatus[status] = (byStatus[status] ?? 0) + count
+  }
+  if (Object.keys(byStatus).length === 0) throw new Error('Kanban stats section was empty.')
+  const total = Object.values(byStatus).reduce((sum, count) => sum + count, 0)
+  return { byStatus, total }
+}
+
 export function parseTasks(output: string): Task[] {
   const parsed = jsonPayload(output)
   const list = Array.isArray(parsed) ? parsed : parsed && typeof parsed === 'object' && Array.isArray((parsed as Record<string, unknown>).tasks) ? (parsed as { tasks: unknown[] }).tasks : undefined
@@ -543,6 +580,27 @@ export async function collectTaskBoard(run: Run = systemRun): Promise<TaskBoardS
   if (withTasks.length > 0 && failedBoards.length === withTasks.length) return { tasks: results[0], boards: boards.data, fetchedAt }
   const tasks = results.flatMap((result, index) => result.availability === 'available' ? result.data.map((task) => ({ ...task, board: withTasks[index].slug })) : [])
   return { tasks: { availability: 'available', data: tasks }, boards: boards.data, ...(failedBoards.length ? { failedBoards } : {}), fetchedAt }
+}
+
+/**
+ * `hermes kanban stats` per board: canonical status counts, including `blocked` and
+ * `ready`, which `kanban list` already carries but which the board view needs per
+ * project. Read per board so one unreadable board degrades alone.
+ */
+export async function collectBoardStats(run: Run = systemRun): Promise<Source<Record<string, KanbanStatusCounts>>> {
+  const boards = await read(run, 'hermes', ['kanban', 'boards', 'list', '--json'], parseBoards, [])
+  if (boards.availability !== 'available') return { availability: 'unavailable', data: {}, error: boards.error }
+  const readable = boards.data
+  if (readable.length === 0) return { availability: 'available', data: {} }
+  const results = await mapLimit(readable, KANBAN_CONCURRENCY, (board) => read(run, 'hermes', ['kanban', '--board', board.slug, 'stats'], parseStats, null))
+  const data: Record<string, KanbanStatusCounts> = {}
+  const failed: string[] = []
+  results.forEach((result, index) => {
+    if (result.availability === 'available' && result.data) data[readable[index].slug] = result.data
+    else failed.push(readable[index].slug)
+  })
+  if (failed.length === readable.length) return { availability: 'unavailable', data, error: results[0].error }
+  return { availability: 'available', data }
 }
 
 /**
@@ -995,6 +1053,7 @@ function cachedSource<T>(collect: () => Promise<T>, ttl = CACHE_MS) {
 
 const runtimeSource = cachedSource(() => collectSnapshot())
 const taskBoardSource = cachedSource(() => collectTaskBoard())
+const boardStatsSource = cachedSource(() => collectBoardStats())
 const calendarSource = cachedSource(() => collectCalendar())
 const activitySource = cachedSource(() => collectActivity())
 const knowledgeSource = cachedSource(() => collectKnowledge())
@@ -1014,6 +1073,9 @@ const agentActivitySource = cachedSource(async () => {
 export function getSnapshot(now = Date.now()): Promise<RuntimeSnapshot> { return runtimeSource(now) }
 export function clearSnapshotCache(): void { runtimeSource.clear() }
 export function getTaskBoard(now = Date.now()): Promise<TaskBoardSnapshot> { return taskBoardSource(now) }
+
+/** Per-board `hermes kanban stats` counts, keyed by board slug. */
+export function getBoardStats(now = Date.now()): Promise<Source<Record<string, KanbanStatusCounts>>> { return boardStatsSource(now) }
 export function getCalendar(now = Date.now()): Promise<CalendarSnapshot> { return calendarSource(now) }
 export function getActivity(now = Date.now()): Promise<ActivitySnapshot> { return activitySource(now) }
 export function getKnowledge(now = Date.now()): Promise<KnowledgeSnapshot> { return knowledgeSource(now) }
