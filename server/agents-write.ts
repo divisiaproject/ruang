@@ -1,6 +1,6 @@
 import { execFile as execFileCallback } from 'node:child_process'
 import { promisify } from 'node:util'
-import { appendFile, mkdir, readdir, stat } from 'node:fs/promises'
+import { appendFile, copyFile, mkdir, readdir, rename, stat, unlink } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
@@ -113,18 +113,28 @@ async function assertExists(name: string): Promise<void> {
 async function exportProfile(name: string): Promise<string> {
   const dir = auditDir()
   await mkdir(dir, { recursive: true })
-  // hermes profile export writes next to the CWD or a given path; use export all
-  // when available, else fall back to writing a tarball ourselves via export.
+  // `hermes profile export [-o OUTPUT] profile_name` — confirmed on v0.19.0.
   const target = join(dir, `${name}.tar.gz`)
-  await hermes(['profile', 'export', name, '--output', target]).catch(async () => {
-    // Older CLIs may not accept --output; export to CWD then move.
-    const before = new Set(await readdir(dir))
+  let exported = false
+  try {
+    await hermes(['profile', 'export', name, '--output', target])
+    exported = true
+  } catch {
+    exported = false
+  }
+
+  if (!exported) {
+    // Fallback: without --output the archive is written to the process CWD.
+    const fallback = join(process.cwd(), `${name}.tar.gz`)
     await hermes(['profile', 'export', name])
-    const after = await readdir(dir)
-    const created = after.find((f) => !before.has(f))
-    if (!created) throw new WriteError('Export produced no archive; refusing to continue.', 500, 'EXPORT_FAILED')
-    return
-  })
+    if (!existsSync(fallback)) throw new WriteError('Export produced no archive; refusing to continue.', 500, 'EXPORT_FAILED')
+    await rename(fallback, target).catch(async () => {
+      // Cross-device move: copy then unlink.
+      await copyFile(fallback, target)
+      await unlink(fallback).catch(() => {})
+    })
+  }
+
   if (!existsSync(target)) throw new WriteError('Export archive missing; refusing to continue.', 500, 'EXPORT_FAILED')
   const info = await stat(target)
   if (info.size < 32) throw new WriteError('Export archive looks empty; refusing to continue.', 500, 'EXPORT_FAILED')
