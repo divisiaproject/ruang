@@ -5,6 +5,7 @@ import express, { type NextFunction, type Request, type Response } from 'express
 import { alwaysHiddenFor, excludedFor, FolderError, listFolder, publicAgent, readFolderFile, resolveAgentFolders } from './folders.js'
 import { installAccess } from './access.js'
 import { installAgentWrites } from './agents-write.js'
+import { installKanbanWrites } from './kanban-write.js'
 import { redactActivity, redactCalendar, redactDashboard, redactLogs, redactMemory, redactOffice, redactStuck, redactTasks, redactUsage } from './privacy.js'
 import { installProfileLock, isHidden, type Privacy } from './profile-lock.js'
 import { API_VERSION } from './api-version.js'
@@ -31,6 +32,7 @@ app.get('/api/health', (_request, response) => { response.json({ ok: true, apiVe
 // Optional agent write layer (off unless RUANG_WRITE_TOKEN is set).
 // Registered before the access gate so writes carry their own token check.
 installAgentWrites(app)
+installKanbanWrites(app)
 // Optional access code (off by default): locks every other /api route until it is entered.
 installAccess(app)
 // Optional profile lock (off by default): a PIN withholds the private data of chosen agents.
