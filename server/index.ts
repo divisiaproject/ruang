@@ -12,7 +12,9 @@ import { API_VERSION } from './api-version.js'
 import { collectMemory } from './memory.js'
 import { getActivity, getBoardStats, getCalendar, getChannels, getCommandLog, getDashboard, getKnowledge, getLogs, getOffice, getSnapshot, getStuckTasks, getTaskBoard, getTaskDetail, getUsage } from './mission-control.js'
 
-const HOST = '127.0.0.1'
+// Loopback by default: opening Ruang to a network must be a deliberate act, and the
+// warning below is the price of doing it. See RUANG_HOST in README-custom.md.
+const HOST = process.env.RUANG_HOST?.trim() || '127.0.0.1'
 // MISSION_CONTROL_PORT is the pre-rename name, still honoured.
 const PORT = Number(process.env.RUANG_PORT ?? process.env.MISSION_CONTROL_PORT) || 3001
 // The built UI sits next to the server: ../dist from server/*.ts (development, npm start)
@@ -132,4 +134,13 @@ app.use((error: unknown, _request: Request, response: Response, _next: NextFunct
   response.status(500).json({ error: 'Internal error' })
 })
 
-app.listen(PORT, HOST, () => console.log(`Ruang listening on http://${HOST}:${PORT}${existsSync(distDirectory) ? ' (serving built UI)' : ' (API only; run the Vite dev server for the UI)'}`))
+app.listen(PORT, HOST, () => {
+  console.log(`Ruang listening on http://${HOST}:${PORT}${existsSync(distDirectory) ? ' (serving built UI)' : ' (API only; run the Vite dev server for the UI)'}`)
+  // Bound past loopback: the console is the last place to notice an exposed surface, so say
+  // plainly what is now reachable instead of leaving it to be discovered.
+  if (!['127.0.0.1', 'localhost', '::1'].includes(HOST)) {
+    console.warn(`  ! Ruang is reachable from the network on ${HOST}.`)
+    console.warn('  ! Set an access code in Settings before vendors use this, or every /api route stays open.')
+    if ((process.env.RUANG_WRITE_TOKEN || '').trim()) console.warn('  ! Write layer is ON: anyone holding the write token can change Kanban tasks.')
+  }
+})
