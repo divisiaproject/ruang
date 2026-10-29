@@ -27,7 +27,7 @@ export interface KnowledgeSnapshot { skills: Source<Skill[]>; fetchedAt: string 
 export interface Channel { name: string; status: 'Configured' | 'Connected' }
 export interface ChannelSnapshot { channels: Source<Channel[]>; activeSessions?: number; fetchedAt: string }
 export type OfficeState = 'Idle' | 'Working' | 'Reviewing' | 'Collaborating' | 'Offline' | 'Unknown'
-export type OfficeRoom = 'Workspace' | 'Lounge'
+export type OfficeRoom = 'Workspace' | 'Lounge' | 'Project Room'
 export interface OfficeStation {
   /** Agent id: the Hermes profile name, or `opencode`. Also the key for its folder and memory. */
   id: string

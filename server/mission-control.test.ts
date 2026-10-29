@@ -171,7 +171,9 @@ describe('Office snapshot', () => {
 
     expect(office.stations).toMatchObject([
       { id: 'default', name: 'default', role: 'Hermes profile', room: 'Lounge', state: 'Idle', currentTask: 'No attributed task', recentActivity: 'No attributed recent activity' },
-      { name: 'coder', room: 'Workspace', state: 'Reviewing', currentTask: 'Review the office', recentActivity: 'No attributed recent activity' },
+      // Reviewing work now sits in the Project Room: a deliverable waiting on a decision is
+      // project work, not desk work. Every other state keeps its original room.
+      { name: 'coder', room: 'Project Room', state: 'Reviewing', currentTask: 'Review the office', recentActivity: 'No attributed recent activity' },
       { name: 'opencode', room: 'Lounge', state: 'Idle', currentTask: 'No attributed task' },
     ])
   })

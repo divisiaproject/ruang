@@ -832,3 +832,14 @@ aside.office-panel { background: color-mix(in srgb, var(--surface) 96%, transpar
 /* Vendor progress report form inside the task dialog. */
 .task-report-body { flex: 1 1 100%; font: 13px/1.5 var(--font-body, system-ui); min-height: 68px; resize: vertical; }
 .task-report { border-top: 1px solid var(--border); margin-top: 20px; padding-top: 16px; }
+
+/* Project Room: where deliverables wait on a review decision. Same pixel palette as
+   the Lounge, so it reads as part of the office rather than a new art style. */
+.flow-project { align-items: end; display: flex; flex-wrap: wrap; gap: 14px; position: relative; z-index: 3; }
+.flow-project > div { bottom: auto; flex: none; left: auto; position: relative; right: auto; top: auto; transform: none; }
+.project-board { background: #b98c5f; border: 6px solid #17201e; display: grid; gap: 5px; height: 58px; padding: 6px; width: 108px; }
+.project-board i { background: #f0e4cc; border: 2px solid #17201e; display: block; height: 14px; }
+.project-board i:nth-child(2) { background: #e8c060; }
+.review-table { background: #7d5a3c; border: 5px solid #17201e; height: 26px; position: relative; width: 132px; }
+.review-table span { color: #f0e4cc; font: 9px 'DM Mono', monospace; inset: 0; letter-spacing: .08em; line-height: 26px; position: absolute; text-align: center; }
+.project-plant { background: #3f7d54; border: 5px solid #17201e; border-radius: 40% 40% 8px 8px; height: 46px; width: 34px; }

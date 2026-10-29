@@ -37,7 +37,7 @@ export interface KnowledgeSnapshot { skills: Source<Skill[]>; fetchedAt: string 
 export interface Channel { name: string; status: 'Configured' | 'Connected' }
 export interface ChannelSnapshot { channels: Source<Channel[]>; activeSessions?: number; fetchedAt: string }
 export type OfficeState = 'Idle' | 'Working' | 'Reviewing' | 'Collaborating' | 'Offline' | 'Unknown'
-export type OfficeRoom = 'Workspace' | 'Lounge'
+export type OfficeRoom = 'Workspace' | 'Lounge' | 'Project Room'
 export interface OfficeStation {
   /** Agent id: the Hermes profile name, or `opencode`. Also the key for its folder and memory. */
   id: string
@@ -952,6 +952,7 @@ export function agentRoster(runtime: RuntimeSnapshot): AgentSpec[] {
 
 export const officeRooms = [
   { id: 'Workspace', label: 'Workspace', description: 'Desks, collaboration, and neutral presence positions.' },
+  { id: 'Project Room', label: 'Project Room', description: 'Deliverables waiting on a review decision.' },
   { id: 'Lounge', label: 'Lounge', description: 'A quiet break and idle room.' },
 ] as const
 
@@ -990,7 +991,9 @@ function explicitState(agent: AgentSpec, states: ExplicitOfficeState[], now: num
 function roomForState(state: OfficeState, index: number): Pick<OfficeStation, 'room' | 'roomPosition'> {
   if (state === 'Idle') return { room: 'Lounge', roomPosition: `lounge-seat-${index + 1}` }
   if (state === 'Offline') return { room: 'Workspace', roomPosition: 'offline-station' }
-  if (state === 'Reviewing') return { room: 'Workspace', roomPosition: 'review-desk' }
+  // Reviewing means a human decision is pending on a deliverable, which is project work
+  // rather than desk work. Everything else that is not idle stays where it was.
+  if (state === 'Reviewing') return { room: 'Project Room', roomPosition: 'review-table' }
   if (state === 'Collaborating') return { room: 'Workspace', roomPosition: 'meeting-area' }
   if (state === 'Working') return { room: 'Workspace', roomPosition: 'assigned-desk' }
   return { room: 'Workspace', roomPosition: 'neutral-presence' }

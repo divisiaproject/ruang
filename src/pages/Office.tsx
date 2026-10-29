@@ -49,7 +49,7 @@ class SceneBoundary extends Component<{ fallback: ReactNode; children: ReactNode
   render() { return this.state.failed ? this.props.fallback : this.props.children }
 }
 
-const ROOMS: OfficeRoom[] = ['Workspace', 'Lounge']
+const ROOMS: OfficeRoom[] = ['Workspace', 'Project Room', 'Lounge']
 
 /** A pixel character dressed in the colours derived from the agent id. */
 export function PixelCharacter({ agent }: { agent: string }) {
@@ -201,19 +201,23 @@ export function Office({ dashboard, dashboardPending = false, onNavigate }: { da
     </div>
     <div className="office-canvas">
       {show3d ? <SceneBoundary fallback={<section className="empty-state"><h2>3D view unavailable</h2><p>The 3D office could not start on this device. Switch back to 2D.</p></section>}><Suspense fallback={<LoadingState message="Loading the 3D office..."/>}><Office3D stations={office?.stations ?? []} onSelect={select3d}/></Suspense></SceneBoundary> : <>{view === '3d' && !webgl && <p className="muted office-note">3D needs WebGL, which this browser does not provide. Showing 2D.</p>}<div className="room-tabs" role="tablist" aria-label="Office rooms">{ROOMS.map((item) => <button role="tab" aria-selected={room === item} className={room === item ? 'active' : ''} onClick={() => setChosenRoom(item)} key={item}>{item} <span className="room-count">{counts[item]}</span></button>)}</div>
-        <div className="room-scroll"><section className={`pixel-room flow ${room.toLowerCase()}`} aria-label={`${room} room`}><div className="room-label"><span>{room}</span><small>{room === 'Workspace' ? `${deskCount} HOT DESK${deskCount === 1 ? '' : 'S'} + MEETING ROOM` : 'QUIET BREAK AREA'}</small></div>
+        <div className="room-scroll"><section className={`pixel-room flow ${room === 'Project Room' ? 'projectroom' : room.toLowerCase()}`} aria-label={`${room} room`}><div className="room-label"><span>{room}</span><small>{room === 'Workspace' ? `${deskCount} HOT DESK${deskCount === 1 ? '' : 'S'} + MEETING ROOM` : room === 'Project Room' ? 'REVIEW TABLE · DELIVERABLES AWAITING A DECISION' : 'QUIET BREAK AREA'}</small></div>
           {room === 'Workspace' ? <>
             <div className="flow-desks">{Array.from({ length: deskCount }, (_, index) => {
               const atDesk = stations.find((station) => station.seat === index + 1 && station.roomPosition !== 'meeting-area')
               return <div className="flow-desk-cell" key={index}>{atDesk && stationButton2d(atDesk)}<div className={`ws-desk${atDesk && atDesk.state !== 'Offline' ? ' occupied' : ''}`} aria-hidden="true"><i/></div></div>
             })}</div>
             <div className="flow-meeting"><div className="meeting-table" aria-hidden="true"><span>MEETING</span></div><div className="flow-crew">{stations.filter((station) => station.roomPosition === 'meeting-area').map(stationButton2d)}</div></div>
+          </> : room === 'Project Room' ? <>
+            <div className="flow-project" aria-hidden="true"><div className="project-board"><i/><i/><i/></div><div className="review-table"><span>REVIEW</span></div><div className="project-plant"/></div>
+            <div className="flow-crew">{stations.map(stationButton2d)}</div>
           </> : <>
             <div className="flow-lounge-props" aria-hidden="true"><div className="pixel-tv"/><div className="lounge-chair"/><div className="lounge-sofa"/><div className="coffee-table"/><div className="lounge-chair"/><div className="pixel-plant"/></div>
             <div className="flow-crew">{stations.map(stationButton2d)}</div>
           </>}
           {room === 'Lounge' && stations.length === 0 && <p className="room-empty">No declared idle presence</p>}
           {room === 'Workspace' && stations.length === 0 && office && <p className="room-empty">Desks are empty · crew is in the Lounge</p>}
+          {room === 'Project Room' && stations.length === 0 && office && <p className="room-empty">No deliverable is waiting on a review</p>}
         </section></div></>}
       {snapshot.status === 'failed' && <section className="empty-state office-failed"><h2>Not Available</h2><p>The office source could not be reached.</p></section>}
     </div>
