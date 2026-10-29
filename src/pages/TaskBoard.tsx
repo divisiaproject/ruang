@@ -7,6 +7,8 @@ import { Dialog, EmptyState, PageTitle, SearchInput, SourceStatus, Unavailable }
 import { ProfileUnlock, RelockBar } from '../ProfileLock.tsx'
 import { agentPrivacy, useProfileLock } from '../profile-lock.ts'
 import { TaskActions } from '../TaskActions.tsx'
+import { ReportForm } from '../ReportForm.tsx'
+import { parseReport } from '../report.ts'
 
 const UNASSIGNED = '(unassigned)'
 
@@ -56,12 +58,24 @@ export function TaskDetailDialog({ task, onClose, onOpenTask }: { task: Task; on
       <section className="task-section"><p className="eyebrow">DESCRIPTION</p>{detail.body ? <pre className="task-text">{detail.body}</pre> : <p className="muted">No description.</p>}</section>
       {detail.result && <section className="task-section"><p className="eyebrow">RESULT / LATEST SUMMARY</p><pre className="task-text">{detail.result}</pre></section>}
       {detail.runs.length > 0 && <section className="task-section"><p className="eyebrow">RUNS ({detail.runs.length})</p><table className="log-table"><thead><tr><th>Run</th><th>Profile</th><th>Status</th><th>Started</th><th>Ended</th></tr></thead><tbody>{detail.runs.map((run) => <tr key={run.id}><td>#{run.id}</td><td>{run.profile ?? '—'}</td><td><span className={`badge ${statusTone(run.outcome ?? run.status ?? '')}`}>{run.outcome ?? run.status ?? '—'}</span>{run.error && <div className="text-bad small-note">{run.error}</div>}{run.summary && <div className="small-note">{run.summary}</div>}</td><td>{formatDateTime(run.startedAt)}</td><td>{formatDateTime(run.endedAt)}</td></tr>)}</tbody></table></section>}
-      {detail.comments.length > 0 && <section className="task-section"><p className="eyebrow">COMMENTS ({detail.comments.length})</p><ul className="task-timeline">{detail.comments.map((comment, index) => <li key={index}><b>{comment.author}</b><small>{formatDateTime(comment.createdAt)}</small><p>{comment.body}</p></li>)}</ul></section>}
+      {detail.comments.length > 0 && <section className="task-section"><p className="eyebrow">COMMENTS ({detail.comments.length})</p><ul className="task-timeline">{detail.comments.map((comment, index) => {
+        // A vendor report carries its reporter in the body header; a plain comment has none.
+        const report = parseReport(comment.body)
+        return <li key={index}>
+          <b>{report ? report.vendor : comment.author}</b>
+          {report && <span className="chip">vendor report</span>}
+          {report?.percent !== undefined && <span className="chip">{report.percent}%</span>}
+          {report?.status && <span className={`badge ${report.status === 'blocked' || report.status === 'at-risk' ? 'bad' : report.status === 'done' ? 'muted' : 'good'}`}>{report.status}</span>}
+          <small>{formatDateTime(comment.createdAt)}</small>
+          {report ? (report.body ? <p>{report.body}</p> : null) : <p>{comment.body}</p>}
+        </li>
+      })}</ul></section>}
       {detail.events.length > 0 && <section className="task-section"><p className="eyebrow">ACTIVITY ({detail.events.length})</p><ul className="task-timeline">{[...detail.events].reverse().map((event, index) => <li key={index}><b>{event.kind}</b><small>{formatDateTime(event.createdAt)}{event.runId ? ` · run #${event.runId}` : ''}</small>{event.detail && <code>{event.detail}</code>}</li>)}</ul></section>}
     </>}
     {/* Write controls last and always outside the `detail` block: the read path can
         fail while the write path still works, and a locked agent shows no actions. */}
     {!locked && <TaskActions taskId={task.id} board={task.board} onDone={onClose}/>}
+    {!locked && <ReportForm taskId={task.id} board={task.board} onDone={onClose}/>}
     </>}
   </Dialog>
 }
