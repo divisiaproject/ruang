@@ -6,6 +6,7 @@ import type { Task, TaskBoardSnapshot, TaskDetailSnapshot } from '../types.ts'
 import { Dialog, EmptyState, PageTitle, SearchInput, SourceStatus, Unavailable } from '../ui.tsx'
 import { ProfileUnlock, RelockBar } from '../ProfileLock.tsx'
 import { agentPrivacy, useProfileLock } from '../profile-lock.ts'
+import { TaskActions } from '../TaskActions.tsx'
 
 const UNASSIGNED = '(unassigned)'
 
@@ -58,6 +59,9 @@ export function TaskDetailDialog({ task, onClose, onOpenTask }: { task: Task; on
       {detail.comments.length > 0 && <section className="task-section"><p className="eyebrow">COMMENTS ({detail.comments.length})</p><ul className="task-timeline">{detail.comments.map((comment, index) => <li key={index}><b>{comment.author}</b><small>{formatDateTime(comment.createdAt)}</small><p>{comment.body}</p></li>)}</ul></section>}
       {detail.events.length > 0 && <section className="task-section"><p className="eyebrow">ACTIVITY ({detail.events.length})</p><ul className="task-timeline">{[...detail.events].reverse().map((event, index) => <li key={index}><b>{event.kind}</b><small>{formatDateTime(event.createdAt)}{event.runId ? ` · run #${event.runId}` : ''}</small>{event.detail && <code>{event.detail}</code>}</li>)}</ul></section>}
     </>}
+    {/* Write controls last and always outside the `detail` block: the read path can
+        fail while the write path still works, and a locked agent shows no actions. */}
+    {!locked && <TaskActions taskId={task.id} board={task.board} onDone={onClose}/>}
     </>}
   </Dialog>
 }
