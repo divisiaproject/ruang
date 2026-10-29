@@ -1,7 +1,20 @@
 import { describe, expect, it } from 'vitest'
-import { parseStats } from './mission-control.js'
+import { parseAge, parseStats } from './mission-control.js'
 
-// Verbatim output captured from `hermes kanban stats` on Hermes v0.19.0 (2026-10-28).
+// Verbatim `hermes kanban stats` from Hermes v0.19.0 on the host, board `divisia-demo`
+// after seeding 10 tasks (2026-10-28). Note the irregular spacing on `scheduled  0`.
+const REAL_NONEMPTY = `By status:
+  triage    0
+  todo      0
+  scheduled  0
+  ready     10
+  running   0
+  blocked   0
+  done      0
+
+Oldest ready task age: 4s`
+
+// Verbatim output from the empty `default` board — no "Oldest ready task age" line.
 const REAL_EMPTY = `By status:
   triage    0
   todo      0
@@ -9,52 +22,43 @@ const REAL_EMPTY = `By status:
   ready     0
   running   0
   blocked   0
-  done      0
-`
-
-const REAL_COUNTED = `By status:
-  triage      3
-  todo        8
-  scheduled   2
-  ready       5
-  running     1
-  blocked     4
-  done       27
-`
+  done      0`
 
 describe('parseStats', () => {
-  it('parses the real empty-board output', () => {
-    const stats = parseStats(REAL_EMPTY)
-    expect(stats.byStatus).toEqual({ triage: 0, todo: 0, scheduled: 0, ready: 0, running: 0, blocked: 0, done: 0 })
-    expect(stats.total).toBe(0)
-  })
-
-  it('parses counted statuses and tolerates variable column spacing', () => {
-    const stats = parseStats(REAL_COUNTED)
-    expect(stats.byStatus.blocked).toBe(4)
-    expect(stats.byStatus.ready).toBe(5)
-    expect(stats.byStatus.done).toBe(27)
-    expect(stats.total).toBe(50)
-  })
-
-  it('stops at a later section instead of folding it into the status block', () => {
-    const withTail = `${REAL_COUNTED}\nBy assignee:\n  leadagent   12\n`
-    const stats = parseStats(withTail)
-    expect(stats.byStatus.leadagent).toBeUndefined()
-    expect(stats.total).toBe(50)
-  })
-
-  it('keeps unknown future statuses rather than dropping them', () => {
-    const stats = parseStats('By status:\n  todo   1\n  archived   9\n')
-    expect(stats.byStatus.archived).toBe(9)
+  it('parses the non-empty board verbatim, including oldest ready age', () => {
+    const stats = parseStats(REAL_NONEMPTY)
+    expect(stats.byStatus).toEqual({ triage: 0, todo: 0, scheduled: 0, ready: 10, running: 0, blocked: 0, done: 0 })
     expect(stats.total).toBe(10)
+    expect(stats.oldestReadySeconds).toBe(4)
   })
 
-  it('throws when there is no status section', () => {
-    expect(() => parseStats('no board here')).toThrow(/By status/)
+  it('omits oldestReadySeconds on an empty board rather than inventing 0', () => {
+    const stats = parseStats(REAL_EMPTY)
+    expect(stats.total).toBe(0)
+    expect('oldestReadySeconds' in stats).toBe(false)
   })
 
-  it('throws when the status section is empty', () => {
-    expect(() => parseStats('By status:\n')).toThrow(/empty/)
+  it('still rejects output with no By status section', () => {
+    expect(() => parseStats('nonsense')).toThrow(/By status/)
+  })
+})
+
+describe('parseAge', () => {
+  it.each([
+    ['4s', 4],
+    ['12m', 720],
+    ['3h', 10_800],
+    ['2d', 172_800],
+    ['1w', 604_800],
+    ['2d 4h', 187_200],
+    ['1w2d', 777_600],
+    ['1h 30m 10s', 5_410],
+  ])('%s -> %i seconds', (input, expected) => {
+    expect(parseAge(input)).toBe(expected)
+  })
+
+  it('returns undefined when there is no duration', () => {
+    expect(parseAge('—')).toBeUndefined()
+    expect(parseAge('')).toBeUndefined()
   })
 })

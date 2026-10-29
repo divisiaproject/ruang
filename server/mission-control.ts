@@ -194,6 +194,8 @@ export function jsonPayload(output: string): unknown {
 export interface KanbanStatusCounts {
   byStatus: Record<string, number>
   total: number
+  /** Seconds the oldest `ready` task has waited, from `stats`; absent on an empty board. */
+  oldestReadySeconds?: number
 }
 
 /**
@@ -224,7 +226,23 @@ export function parseStats(output: string): KanbanStatusCounts {
   }
   if (Object.keys(byStatus).length === 0) throw new Error('Kanban stats section was empty.')
   const total = Object.values(byStatus).reduce((sum, count) => sum + count, 0)
-  return { byStatus, total }
+  // "Oldest ready task age: 4s" — only printed once the board has a ready task, so the
+  // absence of the line is normal on an empty board, not a parse failure.
+  const oldest = /^\s*Oldest ready task age\s*:\s*(.+?)\s*$/im.exec(output)
+  const oldestReadySeconds = oldest ? parseAge(oldest[1]) : undefined
+  return { byStatus, total, ...(oldestReadySeconds !== undefined ? { oldestReadySeconds } : {}) }
+}
+
+/** Duration as Hermes prints it ("4s", "12m", "3h", "2d 4h", "1w2d") into seconds. */
+export function parseAge(value: string): number | undefined {
+  const units: Record<string, number> = { s: 1, m: 60, h: 3600, d: 86400, w: 604800 }
+  let seconds = 0
+  let matched = false
+  for (const part of Array.from(value.matchAll(/(\d+)\s*([smhdw])/gi))) {
+    seconds += Number.parseInt(part[1], 10) * units[part[2].toLowerCase()]
+    matched = true
+  }
+  return matched ? seconds : undefined
 }
 
 /** A task the owner should look at today, with the reason it surfaced. */
