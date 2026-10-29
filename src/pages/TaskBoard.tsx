@@ -8,6 +8,7 @@ import { ProfileUnlock, RelockBar } from '../ProfileLock.tsx'
 import { agentPrivacy, useProfileLock } from '../profile-lock.ts'
 import { TaskActions } from '../TaskActions.tsx'
 import { ReportForm } from '../ReportForm.tsx'
+import { AssignControl } from '../AssignControl.tsx'
 import { parseReport } from '../report.ts'
 
 const UNASSIGNED = '(unassigned)'
@@ -75,6 +76,7 @@ export function TaskDetailDialog({ task, onClose, onOpenTask }: { task: Task; on
     {/* Write controls last and always outside the `detail` block: the read path can
         fail while the write path still works, and a locked agent shows no actions. */}
     {!locked && <TaskActions taskId={task.id} board={task.board} onDone={onClose}/>}
+    {!locked && <AssignControl taskId={task.id} board={task.board} current={detail?.assignee ?? task.assignee} onDone={onClose}/>}
     {!locked && <ReportForm taskId={task.id} board={task.board} onDone={onClose}/>}
     </>}
   </Dialog>

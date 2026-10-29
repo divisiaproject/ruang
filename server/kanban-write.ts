@@ -181,7 +181,12 @@ export function commentTaskArgs(slug: string, taskId: unknown, body: unknown): s
 export function assignTaskArgs(slug: string, taskId: unknown, assignee: unknown): string[] {
   const name = optionalText(assignee, 'assignee', 64)
   if (!name) throw new KanbanWriteError('assignee is required.', 400, 'INVALID_INPUT')
-  if (!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(name)) throw new KanbanWriteError('assignee must be lowercase letters, digits, dashes or underscores.', 400, 'INVALID_INPUT')
+  // A Kanban assignee is a free-text label, not a profile id: vendors and teams are real
+  // assignees. Keep it printable and non-option-like so it can never be read as a flag,
+  // but allow spaces and capitals so "CV Sinar Jaya" is a valid assignee.
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000-\u001f\u007f]/.test(name)) throw new KanbanWriteError('assignee cannot contain control characters.', 400, 'INVALID_INPUT')
+  if (name.startsWith('-')) throw new KanbanWriteError('assignee cannot start with a dash.', 400, 'INVALID_INPUT')
   return ['kanban', '--board', requireSlug(slug), 'assign', requireTaskId(taskId), name]
 }
 

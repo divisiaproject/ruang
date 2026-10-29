@@ -103,7 +103,27 @@ describe('validation', () => {
 
   it('rejects an assignee that would be read as a flag', () => {
     expectReject(() => assignTaskArgs(BOARD, ID, '--yes'), 'INVALID_INPUT')
-    expectReject(() => assignTaskArgs(BOARD, ID, 'Lead Agent'), 'INVALID_INPUT')
+    expectReject(() => assignTaskArgs(BOARD, ID, '-x'), 'INVALID_INPUT')
+  })
+
+  it('rejects control characters in an assignee', () => {
+    expectReject(() => assignTaskArgs(BOARD, ID, 'CV\nSinar'), 'INVALID_INPUT')
+  })
+
+  it('accepts a vendor name with spaces and capitals', () => {
+    // A Kanban assignee is a free-text label, not a profile id. Blocking this made
+    // every real vendor unassignable.
+    expect(assignTaskArgs(BOARD, ID, 'CV Sinar Jaya')).toEqual(['kanban', '--board', BOARD, 'assign', ID, 'CV Sinar Jaya'])
+  })
+
+  it('keeps a vendor name as ONE argv element, never split on spaces', () => {
+    const args = assignTaskArgs(BOARD, ID, 'CV Sinar Jaya')
+    expect(args).toHaveLength(6)
+    expect(args[5]).toBe('CV Sinar Jaya')
+  })
+
+  it('still accepts a profile-style id', () => {
+    expect(assignTaskArgs(BOARD, ID, 'leadagent')).toContain('leadagent')
   })
 
   it('requires a comment body', () => {

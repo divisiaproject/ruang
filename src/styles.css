@@ -843,3 +843,7 @@ aside.office-panel { background: color-mix(in srgb, var(--surface) 96%, transpar
 .review-table { background: #7d5a3c; border: 5px solid #17201e; height: 26px; position: relative; width: 132px; }
 .review-table span { color: #f0e4cc; font: 9px 'DM Mono', monospace; inset: 0; letter-spacing: .08em; line-height: 26px; position: absolute; text-align: center; }
 .project-plant { background: #3f7d54; border: 5px solid #17201e; border-radius: 40% 40% 8px 8px; height: 46px; width: 34px; }
+
+/* Assignee picker: every option states whether it is a real agent or a plain label. */
+.task-assign { border-top: 1px solid var(--border); margin-top: 20px; padding-top: 16px; }
+.task-assign select { font-family: var(--font-body, system-ui); }
