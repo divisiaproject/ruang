@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import express from 'express'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { AccessStore, Throttle, generateCode, installAccess, issueToken, normalizeCode, tokenValid } from './access.js'
+import { AccessStore, Throttle, generateCode, installAccess, issueToken, normalizeCode, tokenRole, tokenValid } from './access.js'
 
 const CODE = 'correct-horse-battery'
 let dir: string
@@ -118,5 +118,66 @@ describe('access code helpers', () => {
     expect(tokenValid(file, issueToken(file, true, now), now + 6 * 86_400_000)).toBe(true)
     expect(tokenValid(file, token.replace(/\.0\./, '.1.'), now)).toBe(false)
     expect(tokenValid({ ...file, secret: Buffer.alloc(32, 1).toString('base64') }, token, now)).toBe(false)
+  })
+})
+
+describe('admin and vendor roles', () => {
+  const VENDOR = 'vendor-code-abc123'
+  const unlock = async (code: string) => {
+    const response = await post('/api/access/unlock', { code })
+    return { status: response.status, cookie: sessionOf(response), body: await response.json() }
+  }
+
+  it('marks the admin session as admin and reports the vendor code as set', async () => {
+    const set = await post('/api/access/code', { code: CODE, vendorCode: VENDOR })
+    expect(set.status).toBe(200)
+    const admin = await unlock(CODE)
+    expect(admin.status).toBe(200)
+    expect(admin.body).toMatchObject({ role: 'admin', vendorCodeSet: true })
+  })
+
+  it('gives a vendor code the vendor role, and nothing else', async () => {
+    await post('/api/access/code', { code: CODE, vendorCode: VENDOR })
+    const vendor = await unlock(VENDOR)
+    expect(vendor.status).toBe(200)
+    expect(vendor.body).toMatchObject({ role: 'vendor', vendorCodeSet: true })
+    // The vendor may still read ordinary data.
+    expect((await get('/api/secret', vendor.cookie)).status).toBe(200)
+  })
+
+  it('refuses a vendor session the right to change the codes', async () => {
+    await post('/api/access/code', { code: CODE, vendorCode: VENDOR })
+    const vendor = await unlock(VENDOR)
+    const change = await post('/api/access/code', { code: 'another-long-code-x', currentCode: VENDOR }, vendor.cookie)
+    expect(change.status).toBe(403)
+    expect(await change.json()).toMatchObject({ error: expect.stringContaining('admin code') })
+  })
+
+  it('refuses a vendor session the right to turn the lock off', async () => {
+    await post('/api/access/code', { code: CODE, vendorCode: VENDOR })
+    const vendor = await unlock(VENDOR)
+    const off = await post('/api/access/disable', { currentCode: VENDOR }, vendor.cookie)
+    expect(off.status).toBe(403)
+  })
+
+  it('rejects a vendor code identical to the admin code', async () => {
+    const response = await post('/api/access/code', { code: CODE, vendorCode: CODE })
+    expect(response.status).toBe(400)
+  })
+
+  it('keeps a single-code file working, with no vendor role', async () => {
+    await post('/api/access/code', { code: CODE })
+    const admin = await unlock(CODE)
+    expect(admin.body).toMatchObject({ role: 'admin', vendorCodeSet: false })
+    expect((await unlock(VENDOR)).status).toBe(401)
+  })
+
+  it('carries the role in the session token and rejects a tampered one', async () => {
+    const file = await store.set(CODE, VENDOR)
+    const now = Date.now()
+    const vendorToken = issueToken(file, false, now, 'vendor')
+    expect(tokenRole(file, vendorToken, now)).toBe('vendor')
+    expect(tokenRole(file, vendorToken.replace('.vendor.', '.admin.'), now)).toBeUndefined()
+    expect(tokenValid(file, issueToken(file, false, now, 'admin'), now)).toBe(true)
   })
 })

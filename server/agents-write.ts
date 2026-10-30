@@ -5,6 +5,7 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import express, { type NextFunction, type Request, type Response, type Express } from 'express'
+import type { Role } from './access.js'
 
 // ---------------------------------------------------------------------------
 // Agent write module.
@@ -209,7 +210,7 @@ function authorised(request: Request, token: string): boolean {
   return mismatch === 0
 }
 
-export function installAgentWrites(app: Express): void {
+export function installAgentWrites(app: Express, roleOf?: (request: Request) => Promise<Role | undefined>): void {
   const token = (process.env.RUANG_WRITE_TOKEN || '').trim()
   if (!token) {
     // Writes stay off. Expose only a status the UI can read.
@@ -219,7 +220,9 @@ export function installAgentWrites(app: Express): void {
     return
   }
 
-  app.use('/api/agents', express.json({ limit: '16kb' }), (request: Request, response: Response, next: NextFunction) => {
+  app.use('/api/agents', express.json({ limit: '16kb' }), async (request: Request, response: Response, next: NextFunction) => {
+    // A vendor session may read the board but must never create or change an agent.
+    if (roleOf && (await roleOf(request)) === 'vendor') return response.status(403).json({ error: 'Only an admin session can manage agents.', adminOnly: true })
     if (!authorised(request, token)) {
       return response.status(401).json({ error: 'Write token required.', enabled: true })
     }

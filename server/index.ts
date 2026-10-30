@@ -32,12 +32,13 @@ app.use('/api', (_request, response, next) => {
 const startedAt = new Date().toISOString()
 app.get('/api/health', (_request, response) => { response.json({ ok: true, apiVersion: API_VERSION, startedAt }) })
 
-// Optional agent write layer (off unless RUANG_WRITE_TOKEN is set).
-// Registered before the access gate so writes carry their own token check.
-installAgentWrites(app)
-installKanbanWrites(app)
 // Optional access code (off by default): locks every other /api route until it is entered.
-installAccess(app)
+// Returns the caller's role, which the write layers below use to keep vendor sessions read-only.
+const roleOf = installAccess(app)
+// Optional write layers (off unless RUANG_WRITE_TOKEN is set).
+// Registered with the role check so `admin` may write and `vendor` may not.
+installAgentWrites(app, roleOf)
+installKanbanWrites(app, roleOf)
 // Optional profile lock (off by default): a PIN withholds the private data of chosen agents.
 const privacyOf = installProfileLock(app)
 

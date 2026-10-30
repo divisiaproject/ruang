@@ -22,7 +22,10 @@ export class AccessError extends Error {
   constructor(message: string, readonly status: number, readonly retryAfterMs?: number) { super(message) }
 }
 
-interface AccessFile { version: 1; salt: string; hash: string; secret: string; createdAt: string }
+/** `admin` may use the write forms; `vendor` may only read and file reports. */
+export type Role = 'admin' | 'vendor'
+
+interface AccessFile { version: 1; salt: string; hash: string; secret: string; createdAt: string; vendorSalt?: string; vendorHash?: string }
 /** `broken` means the file exists but cannot be read: Ruang stays locked (fail closed). */
 type AccessState = { enabled: false } | { enabled: true; file?: AccessFile; broken?: true }
 
@@ -54,7 +57,11 @@ export function derive(code: string, salt: Buffer): Promise<Buffer> {
 
 function isAccessFile(value: unknown): value is AccessFile {
   const record = value as Record<string, unknown> | null
-  return Boolean(record) && record!.version === 1 && ['salt', 'hash', 'secret', 'createdAt'].every((key) => typeof record![key] === 'string' && (record![key] as string).length > 0)
+  if (!Boolean(record) || record!.version !== 1) return false
+  if (!['salt', 'hash', 'secret', 'createdAt'].every((key) => typeof record![key] === 'string' && (record![key] as string).length > 0)) return false
+  // A vendor code is all-or-nothing: half a pair would silently drop the role gate.
+  const vendor = [record!.vendorSalt, record!.vendorHash].filter((item) => typeof item === 'string' && item.length > 0)
+  return vendor.length === 0 || vendor.length === 2
 }
 
 export class AccessStore {
@@ -85,9 +92,14 @@ export class AccessStore {
     return state
   }
 
-  async set(code: string): Promise<AccessFile> {
+  async set(code: string, vendorCode?: string): Promise<AccessFile> {
     const salt = randomBytes(16)
     const file: AccessFile = { version: 1, salt: salt.toString('base64'), hash: (await derive(normalizeCode(code), salt)).toString('base64'), secret: randomBytes(32).toString('base64'), createdAt: new Date().toISOString() }
+    if (vendorCode !== undefined && vendorCode !== '') {
+      const vendorSalt = randomBytes(16)
+      file.vendorSalt = vendorSalt.toString('base64')
+      file.vendorHash = (await derive(normalizeCode(vendorCode), vendorSalt)).toString('base64')
+    }
     await mkdir(this.dir, { recursive: true, mode: 0o700 })
     const temporary = `${this.path}.${process.pid}.tmp`
     await writeFile(temporary, `${JSON.stringify(file, null, 2)}\n`, { mode: 0o600 })
@@ -102,11 +114,25 @@ export class AccessStore {
   }
 
   async verify(code: unknown): Promise<boolean> {
+    return (await this.roleOf(code)) !== undefined
+  }
+
+  /**
+   * Which role a code unlocks, or undefined when it matches neither. The admin code is
+   * checked first; the vendor code, when set, only ever unlocks the vendor role.
+   */
+  async roleOf(code: unknown): Promise<Role | undefined> {
     const state = await this.state()
-    if (!state.enabled || !state.file || typeof code !== 'string') return false
-    const expected = Buffer.from(state.file.hash, 'base64')
-    const actual = await derive(code.trim(), Buffer.from(state.file.salt, 'base64'))
-    return expected.length === actual.length && timingSafeEqual(expected, actual)
+    if (!state.enabled || !state.file || typeof code !== 'string') return undefined
+    const file = state.file
+    const matches = async (hash: string, salt: string): Promise<boolean> => {
+      const expected = Buffer.from(hash, 'base64')
+      const actual = await derive(code.trim(), Buffer.from(salt, 'base64'))
+      return expected.length === actual.length && timingSafeEqual(expected, actual)
+    }
+    if (await matches(file.hash, file.salt)) return 'admin'
+    if (file.vendorHash && file.vendorSalt && await matches(file.vendorHash, file.vendorSalt)) return 'vendor'
+    return undefined
   }
 }
 
@@ -114,17 +140,23 @@ function signature(secret: string, payload: string): string {
   return createHmac('sha256', Buffer.from(secret, 'base64')).update(payload).digest('base64url')
 }
 
-export function issueToken(file: AccessFile, remember: boolean, now = Date.now()): string {
-  const payload = `v1.${now + (remember ? REMEMBER_MS : SESSION_MS)}.${remember ? 1 : 0}`
+export function issueToken(file: AccessFile, remember: boolean, now = Date.now(), role: Role = 'admin'): string {
+  const payload = `v1.${now + (remember ? REMEMBER_MS : SESSION_MS)}.${remember ? 1 : 0}.${role}`
   return `${payload}.${signature(file.secret, payload)}`
 }
 
-export function tokenValid(file: AccessFile, token: string | undefined, now = Date.now()): boolean {
-  const match = token?.match(/^(v1\.(\d{1,15})\.[01])\.([A-Za-z0-9_-]{43})$/)
-  if (!match || Number(match[2]) <= now) return false
+/** The role a session token carries, or undefined when the token is absent, expired or forged. */
+export function tokenRole(file: AccessFile, token: string | undefined, now = Date.now()): Role | undefined {
+  const match = token?.match(/^(v1\.(\d{1,15})\.[01]\.(admin|vendor))\.([A-Za-z0-9_-]{43})$/)
+  if (!match || Number(match[2]) <= now) return undefined
   const expected = Buffer.from(signature(file.secret, match[1]))
-  const actual = Buffer.from(match[3])
-  return expected.length === actual.length && timingSafeEqual(expected, actual)
+  const actual = Buffer.from(match[4])
+  if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) return undefined
+  return match[3] as Role
+}
+
+export function tokenValid(file: AccessFile, token: string | undefined, now = Date.now()): boolean {
+  return tokenRole(file, token, now) !== undefined
 }
 
 export interface ThrottleOptions { free?: number; maxWaitMs?: number; hardLimit?: number; hardWaitMs?: number }
@@ -160,21 +192,26 @@ function setSession(request: Request, response: Response, token: string | undefi
   response.append('Set-Cookie', token ? `${COOKIE}=${token}; ${[...attributes, ...(remember ? [`Max-Age=${REMEMBER_MS / 1000}`] : [])].join('; ')}` : `${COOKIE}=; ${[...attributes, 'Max-Age=0'].join('; ')}`)
 }
 
-export interface AccessStatus { enabled: boolean; unlocked: boolean; since?: string; minLength: number; rememberDays: number }
+export interface AccessStatus { enabled: boolean; unlocked: boolean; role?: Role; vendorCodeSet?: boolean; since?: string; minLength: number; rememberDays: number }
 
 /** Adds the access routes and the lock in front of every other /api route. Call before them. */
-export function installAccess(app: Express, store = new AccessStore(), throttle = new Throttle()): void {
-  const unlocked = async (request: Request): Promise<boolean> => {
+export function installAccess(app: Express, store = new AccessStore(), throttle = new Throttle()): (request: Request) => Promise<Role | undefined> {
+  /** The role of the caller's session, or undefined when Ruang is locked for them. */
+  const roleOf = async (request: Request): Promise<Role | undefined> => {
     const state = await store.state()
-    return !state.enabled || (state.file !== undefined && tokenValid(state.file, cookieValue(request, COOKIE)))
+    if (!state.enabled) return 'admin'
+    return state.file ? tokenRole(state.file, cookieValue(request, COOKIE)) : undefined
   }
+  const unlocked = async (request: Request): Promise<boolean> => (await roleOf(request)) !== undefined
   const client = (request: Request) => request.socket.remoteAddress ?? 'unknown'
   /** Checks a code against the stored one, counting wrong codes towards the wait. */
-  const checkCode = async (request: Request, code: unknown): Promise<void> => {
+  const checkCode = async (request: Request, code: unknown): Promise<Role> => {
     const wait = throttle.waitMs(client(request))
     if (wait > 0) throw new AccessError(`Too many wrong codes. Try again in ${Math.ceil(wait / 1000)} s.`, 429, wait)
-    if (!(await store.verify(code))) { throttle.fail(client(request)); throw new AccessError('Wrong access code.', 401) }
+    const role = await store.roleOf(code)
+    if (!role) { throttle.fail(client(request)); throw new AccessError('Wrong access code.', 401) }
     throttle.succeed(client(request))
+    return role
   }
   const route = (handler: (request: Request, response: Response) => Promise<unknown>) => async (request: Request, response: Response) => {
     try {
@@ -187,8 +224,9 @@ export function installAccess(app: Express, store = new AccessStore(), throttle 
   }
   const status = async (request: Request): Promise<AccessStatus> => {
     const state = await store.state()
-    const open = await unlocked(request)
-    return { enabled: state.enabled, unlocked: open, ...(open && state.enabled && state.file ? { since: state.file.createdAt } : {}), minLength: MIN_CODE_LENGTH, rememberDays: REMEMBER_MS / 86_400_000 }
+    const role = await roleOf(request)
+    const open = role !== undefined
+    return { enabled: state.enabled, unlocked: open, ...(open && state.enabled && role ? { role } : {}), ...(state.enabled && state.file ? { vendorCodeSet: Boolean(state.file.vendorHash) } : {}), ...(open && state.enabled && state.file ? { since: state.file.createdAt } : {}), minLength: MIN_CODE_LENGTH, rememberDays: REMEMBER_MS / 86_400_000 }
   }
   const body = (request: Request) => (request.body && typeof request.body === 'object' ? request.body as Record<string, unknown> : {})
 
@@ -202,9 +240,11 @@ export function installAccess(app: Express, store = new AccessStore(), throttle 
   app.post('/api/access/unlock', route(async (request, response) => {
     const state = await store.state()
     if (state.enabled) {
-      await checkCode(request, body(request).code)
+      const role = await checkCode(request, body(request).code)
       const current = await store.state()
-      if (current.enabled && current.file) setSession(request, response, issueToken(current.file, body(request).remember === true), body(request).remember === true)
+      if (current.enabled && current.file) setSession(request, response, issueToken(current.file, body(request).remember === true, Date.now(), role), body(request).remember === true)
+      // The new cookie is not on this request yet, so report the role we just issued.
+      return { ...(await status(request)), unlocked: true, role }
     }
     return { ...(await status(request)), unlocked: true }
   }))
@@ -214,20 +254,22 @@ export function installAccess(app: Express, store = new AccessStore(), throttle 
   }))
   /** Turns the code on, or replaces it (the current code is required then). */
   app.post('/api/access/code', route(async (request, response) => {
-    const { code, currentCode, remember } = body(request)
+    const { code, currentCode, remember, vendorCode } = body(request)
     const next = normalizeCode(code)
+    const vendor = typeof vendorCode === 'string' && vendorCode.trim() !== '' ? normalizeCode(vendorCode) : undefined
+    if (vendor !== undefined && vendor === next) throw new AccessError('The vendor code must differ from the admin code.', 400)
     if ((await store.state()).enabled) {
       if (!(await unlocked(request))) throw new AccessError('Ruang is locked. Enter the access code.', 401)
-      await checkCode(request, currentCode)
+      if ((await checkCode(request, currentCode)) !== 'admin') throw new AccessError('The admin code is required to change codes.', 403)
     }
-    const file = await store.set(next)
+    const file = await store.set(next, vendor)
     setSession(request, response, issueToken(file, remember === true), remember === true)
-    return { enabled: true, unlocked: true, since: file.createdAt, minLength: MIN_CODE_LENGTH, rememberDays: REMEMBER_MS / 86_400_000 }
+    return { enabled: true, unlocked: true, role: 'admin', vendorCodeSet: Boolean(file.vendorHash), since: file.createdAt, minLength: MIN_CODE_LENGTH, rememberDays: REMEMBER_MS / 86_400_000 }
   }))
   app.post('/api/access/disable', route(async (request, response) => {
     if (!(await store.state()).enabled) return status(request)
     if (!(await unlocked(request))) throw new AccessError('Ruang is locked. Enter the access code.', 401)
-    await checkCode(request, body(request).currentCode)
+    if ((await checkCode(request, body(request).currentCode)) !== 'admin') throw new AccessError('The admin code is required to turn the lock off.', 403)
     await store.clear()
     setSession(request, response, undefined)
     return status(request)
@@ -237,4 +279,5 @@ export function installAccess(app: Express, store = new AccessStore(), throttle 
     if (await unlocked(request)) { next(); return }
     response.status(401).json({ error: 'Ruang is locked. Enter the access code.', locked: true })
   })
+  return roleOf
 }

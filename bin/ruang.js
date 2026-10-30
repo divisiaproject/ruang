@@ -42,8 +42,9 @@ async function accessCode(action) {
     console.log('Access code removed. Ruang opens without a code; set a new one in Settings.')
   } else if (action === 'new') {
     const code = generateCode()
-    await store.set(code)
-    console.log(`New access code (shown once, keep it safe):\n\n  ${code}\n\nEvery browser session has been signed out.`)
+    const vendor = generateCode()
+    await store.set(code, vendor)
+    console.log(`New access codes (shown once, keep them safe):\n\n  admin:  ${code}\n  vendor: ${vendor}\n\nVendors use the vendor code: they can read the board and file reports, but every write form refuses them.\nEvery browser session has been signed out.`)
   } else {
     console.error(`Unknown access-code action: ${action}\n\n${help}`)
     process.exit(2)

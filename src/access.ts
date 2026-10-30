@@ -1,6 +1,11 @@
 // Client side of the optional access code (see server/access.ts).
 
-export interface AccessStatus { enabled: boolean; unlocked: boolean; since?: string; minLength: number; rememberDays: number }
+export interface AccessStatus { enabled: boolean; unlocked: boolean; role?: 'admin' | 'vendor'; vendorCodeSet?: boolean; since?: string; minLength: number; rememberDays: number }
+
+/** True only for a session that unlocked with the admin code. Absent role (writes off) is not admin. */
+export function isAdmin(status?: AccessStatus): boolean {
+  return status?.role === 'admin'
+}
 
 /** Fired when any API read answers "locked", so the app shows the unlock screen again. */
 export const LOCKED_EVENT = 'ruang:locked'

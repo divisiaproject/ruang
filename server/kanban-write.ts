@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { homedir } from 'node:os'
 import express, { type NextFunction, type Request, type Response, type Express } from 'express'
 import { BOARD_SLUG, TASK_ID } from './mission-control.js'
+import type { Role } from './access.js'
 
 // ---------------------------------------------------------------------------
 // Kanban write module.
@@ -218,7 +219,7 @@ function authorised(request: Request, token: string): boolean {
   return mismatch === 0
 }
 
-export function installKanbanWrites(app: Express): void {
+export function installKanbanWrites(app: Express, roleOf?: (request: Request) => Promise<Role | undefined>): void {
   const token = (process.env.RUANG_WRITE_TOKEN || '').trim()
   if (!token) {
     app.get('/api/kanban/write-status', (_request: Request, response: Response) => {
@@ -227,7 +228,9 @@ export function installKanbanWrites(app: Express): void {
     return
   }
 
-  const requireToken = (request: Request, response: Response, next: NextFunction) => {
+  const requireToken = async (request: Request, response: Response, next: NextFunction) => {
+    // A vendor session may read the board but must never write to it.
+    if (roleOf && (await roleOf(request)) === 'vendor') return response.status(403).json({ error: 'Only an admin session can write.', adminOnly: true })
     if (!authorised(request, token)) return response.status(401).json({ error: 'Write token required.', enabled: true })
     return next()
   }

@@ -10,6 +10,7 @@ import { Logs } from './pages/Logs.tsx'
 import { Memory } from './pages/Memory.tsx'
 import { Office } from './pages/Office.tsx'
 import { Settings } from './pages/Settings.tsx'
+import { Admin } from './pages/Admin.tsx'
 import { Usage } from './pages/Usage.tsx'
 import { TaskBoard } from './pages/TaskBoard.tsx'
 import { LOCKED_EVENT, loadAccess, type AccessStatus } from './access.ts'
@@ -18,7 +19,7 @@ import { LockScreen } from './LockScreen.tsx'
 import { API_VERSION } from './api-version.ts'
 import { RefreshContext, usePolling } from './polling.ts'
 import { usePreferences } from './preferences.ts'
-import { HOME, navigation, pageFromHash, pageSlug, type Page } from './routes.ts'
+import { HOME, isAdminPage, pagesFor, pageFromHash, pageSlug, type Page } from './routes.ts'
 import type { DashboardSnapshot } from './types.ts'
 
 function currentPage(): Page {
@@ -77,19 +78,24 @@ function Shell({ onRefresh, access, onAccessChange }: { onRefresh: () => void; a
   const syncLabel = data ? `SYNCED ${formatTime(data.fetchedAt)}${dashboard.status === 'ready' && dashboard.stale ? ' · STALE' : ''}` : dashboard.status === 'failed' ? 'API NOT AVAILABLE' : 'CONNECTING...'
 
   const alerts = (data && data.commands.failed > 0 ? 1 : 0)
-  const content = page === 'Agents' ? <Agents runtime={data?.runtime ?? null} pending={dashboard.status === 'pending'}/> : page === 'Office' ? <Office dashboard={data} dashboardPending={dashboard.status === 'pending'} onNavigate={navigate}/> : page === 'Usage' ? <Usage/>: page === 'Project Health' ? <ProjectHealth/> : page === 'Telemetry' ? <Telemetry/> : page === 'Task Board' ? <TaskBoard/> : page === 'Calendar' ? <Calendar/> : page === 'Activity' ? <Activity/> : page === 'Memory' ? <Memory onOpenFolders={() => navigate('Folders')}/> : page === 'Folders' ? <Folders/> : page === 'Settings' ? <Settings access={access} onAccessChange={onAccessChange}/> : <Logs/>
+  const content = page === 'Agents' ? <Agents runtime={data?.runtime ?? null} pending={dashboard.status === 'pending'}/> : page === 'Office' ? <Office dashboard={data} dashboardPending={dashboard.status === 'pending'} onNavigate={navigate}/> : page === 'Usage' ? <Usage/>: page === 'Project Health' ? <ProjectHealth/> : page === 'Telemetry' ? <Telemetry/> : page === 'Task Board' ? <TaskBoard/> : page === 'Calendar' ? <Calendar/> : page === 'Activity' ? <Activity/> : page === 'Memory' ? <Memory onOpenFolders={() => navigate('Folders')}/> : page === 'Folders' ? <Folders/> : page === 'Settings' ? <Settings access={access} onAccessChange={onAccessChange}/> : page === 'Admin' ? <Admin/> : <Logs/>
+
+  // A vendor session never sees the owner-only pages in the menu, and is bounced off the URL.
+  const role = access?.role
+  const menu = pagesFor(role)
+  const showContent = isAdminPage(page) && role !== 'admin' ? <section className="card settings-card"><p className="eyebrow">OWNER ONLY</p><h2>This page needs the admin code</h2><p className="muted">You are signed in with the vendor code, so the owner-only forms are not available.</p><button type="button" className="primary-button" onClick={() => navigate(HOME)}>Back to the office</button></section> : content
 
   return <div className={`app${page === 'Office' ? ' app-office' : ''}`}>
     {menuOpen && <div className="drawer-backdrop" onClick={closeMenu} aria-hidden="true"/>}
     <aside id="app-sidebar" className="drawer" ref={drawer} hidden={!menuOpen} aria-label="Menu">
       <div className="drawer-head"><a className="brand" href="#/office" onClick={(event) => { event.preventDefault(); navigate(HOME) }} title="Ruang">RUANG<span>HERMES 3D</span></a><button type="button" className="icon-button" onClick={closeMenu} aria-label="Close menu" title="Close menu (Esc)">✕</button></div>
-      <nav aria-label="Main">{navigation.map((item) => <a href={`#/${pageSlug(item)}`} className={page === item ? 'active' : ''} aria-current={page === item ? 'page' : undefined} key={item} onClick={(event) => { event.preventDefault(); navigate(item) }}>{item}{item === 'Logs' && data && data.commands.failed > 0 && <span className="nav-badge" title="Failed CLI reads">{data.commands.failed}</span>}</a>)}</nav>
-      <div className="sidebar-note"><span className="dot"/> READ-ONLY MODE</div>
+      <nav aria-label="Main">{menu.map((item) => <a href={`#/${pageSlug(item)}`} className={page === item ? 'active' : ''} aria-current={page === item ? 'page' : undefined} key={item} onClick={(event) => { event.preventDefault(); navigate(item) }}>{item}{item === 'Logs' && data && data.commands.failed > 0 && <span className="nav-badge" title="Failed CLI reads">{data.commands.failed}</span>}{isAdminPage(item) && <span className="nav-badge owner" title="Owner only">OWNER</span>}</a>)}</nav>
+      <div className="sidebar-note"><span className={`dot${role === 'admin' ? ' owner' : ''}`}/> {role === 'admin' ? 'ADMIN SESSION' : 'VENDOR SESSION'}</div>
       <small className="drawer-hint">Press M to open or close this menu</small>
     </aside>
     <main><header><span className="header-title"><button type="button" ref={menuButton} className="icon-button menu-button" onClick={() => (menuOpen ? closeMenu() : setMenuOpen(true))} aria-controls="app-sidebar" aria-expanded={menuOpen} aria-label={menuOpen ? 'Close menu' : 'Open menu'} title="Menu (M)">☰{alerts > 0 && <span className="menu-alert" aria-label={`${alerts} alert${alerts === 1 ? '' : 's'} in the menu`}/>}</button><span title="Office Manager">OM / {page.toUpperCase()}</span></span><span className="header-actions"><span className={`sync-label${dashboard.status === 'failed' ? ' text-bad' : ''}`}>{syncLabel}</span><button type="button" className="icon-button theme-toggle" onClick={toggleTheme} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`} title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}>{theme === 'dark' ? '☀' : '☾'}</button><button type="button" className="refresh-button" onClick={onRefresh} aria-label="Refresh all sources">↻ REFRESH</button></span></header>
       {versionNotice && <section className="notice version-notice" role="alert"><strong>Restart needed.</strong> {versionNotice}</section>}
-      {content}
+      {showContent}
     </main></div>
 }
 

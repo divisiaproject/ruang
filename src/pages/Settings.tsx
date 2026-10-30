@@ -16,12 +16,15 @@ function CodeField({ id, label, value, onChange, autoComplete }: { id: string; l
 function CodeSetup({ status, onDone, onCancel }: { status: AccessStatus; onDone: (status: AccessStatus) => void; onCancel: () => void }) {
   const [kind, setKind] = useState<'generated' | 'custom'>('generated')
   const [generated, setGenerated] = useState(() => generateCode())
+  const [vendor, setVendor] = useState(() => generateCode())
+  const [withVendor, setWithVendor] = useState(true)
   const [custom, setCustom] = useState('')
   const [confirm, setConfirm] = useState('')
   const [current, setCurrent] = useState('')
   const [saved, setSaved] = useState(false)
   const [remember, setRemember] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [vendorCopied, setVendorCopied] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
   const code = kind === 'generated' ? generated : custom.trim()
@@ -31,13 +34,16 @@ function CodeSetup({ status, onDone, onCancel }: { status: AccessStatus; onDone:
   const copy = async () => {
     try { await navigator.clipboard.writeText(code); setCopied(true) } catch { setError('Copy is not available here. Download the code instead.') }
   }
+  const copyVendorCode = async () => {
+    try { await navigator.clipboard.writeText(vendor); setVendorCopied(true) } catch { setError('Copy is not available here. Write the vendor code down instead.') }
+  }
   const submit = async (event: FormEvent) => {
     event.preventDefault()
     if (customProblem) { setError(customProblem); return }
     if (status.enabled && !current.trim()) { setError('Enter the current access code.'); return }
     setBusy(true)
     setError(undefined)
-    const result = await accessRequest('code', { code, remember, ...(status.enabled ? { currentCode: current } : {}) })
+    const result = await accessRequest('code', { code, remember, ...(withVendor ? { vendorCode: vendor } : {}), ...(status.enabled ? { currentCode: current } : {}) })
     setBusy(false)
     if (result.ok) onDone(result.status); else setError(result.message)
   }
@@ -53,6 +59,8 @@ function CodeSetup({ status, onDone, onCancel }: { status: AccessStatus; onDone:
         <CodeField id="confirm-code" label="Repeat the new code" value={confirm} onChange={setConfirm} autoComplete="new-password"/>
         <p className="small-note">At least {status.minLength} characters. Spaces at the start and end are ignored.</p></>}
     <p className="muted">Ruang has no password reset, so keep a copy of the code. It is only shown here, while you set it.</p>
+    <label className="check-label"><input type="checkbox" checked={withVendor} onChange={(event) => setWithVendor(event.target.checked)}/> Also set a vendor code (read the board and file reports, never use the write forms)</label>
+    {withVendor && <div className="generated-code"><code aria-label="Generated vendor code">{vendor}</code><button type="button" className="refresh-button" onClick={() => setVendor(generateCode())}>↻ ANOTHER</button><button type="button" className="refresh-button" onClick={() => void copyVendorCode()}>{vendorCopied ? '✓ COPIED' : 'COPY'}</button></div>}
     <div className="access-actions">
       <button type="button" className="refresh-button" onClick={() => downloadCode(code)} disabled={Boolean(customProblem) || !code}>⬇ DOWNLOAD .TXT</button>
       <button type="button" className="refresh-button" onClick={() => void copy()} disabled={Boolean(customProblem) || !code}>{copied ? '✓ COPIED' : 'COPY'}</button>
