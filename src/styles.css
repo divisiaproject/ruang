@@ -847,3 +847,19 @@ aside.office-panel { background: color-mix(in srgb, var(--surface) 96%, transpar
 /* Assignee picker: every option states whether it is a real agent or a plain label. */
 .task-assign { border-top: 1px solid var(--border); margin-top: 20px; padding-top: 16px; }
 .task-assign select { font-family: var(--font-body, system-ui); }
+
+/* Telemetry: meters read straight from the host agent, so tone tracks the number. */
+.host-meters { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.host-meter-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; }
+.host-bar { background: var(--border); border-radius: 4px; height: 8px; margin-top: 6px; overflow: hidden; }
+.host-bar i { display: block; height: 100%; border-radius: 4px; background: var(--text-muted); }
+.host-bar i.tone-good { background: #3fa66a; }
+.host-bar i.tone-warn { background: #d8973c; }
+.host-bar i.tone-bad { background: #d15b4a; }
+.host-meter b.tone-good { color: #3fa66a; }
+.host-meter b.tone-warn { color: #d8973c; }
+.host-meter b.tone-bad { color: #d15b4a; }
+.host-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.host-table th { text-align: left; color: var(--text-muted); font-weight: 500; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+.host-table td { padding: 6px 8px; border-bottom: 1px solid var(--border); }
+.stuck-list { list-style: none; margin: 8px 0 16px; padding: 0; display: grid; gap: 6px; font-size: 13px; }

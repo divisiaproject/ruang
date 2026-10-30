@@ -11,6 +11,7 @@ import { installProfileLock, isHidden, type Privacy } from './profile-lock.js'
 import { API_VERSION } from './api-version.js'
 import { collectMemory } from './memory.js'
 import { getActivity, getBoardStats, getCalendar, getChannels, getCommandLog, getDashboard, getKnowledge, getLogs, getOffice, getSnapshot, getStuckTasks, getTaskBoard, getTaskDetail, getUsage } from './mission-control.js'
+import { fetchHostTelemetry } from './host-telemetry.js'
 
 // Loopback by default: opening Ruang to a network must be a deliberate act, and the
 // warning below is the price of doing it. See RUANG_HOST in README-custom.md.
@@ -48,6 +49,8 @@ const routes: Record<string, (now: number, privacy: Privacy) => Promise<unknown>
   '/api/dashboard': async (now, privacy) => redactDashboard(await getDashboard(now), privacy),
   '/api/tasks': async (now, privacy) => redactTasks(await getTaskBoard(now), privacy),
   '/api/board-stats': getBoardStats,
+  // Host telemetry is proxied so the agent token stays server-side and off every vendor's browser.
+  '/api/host': async () => fetchHostTelemetry(),
   '/api/stuck': async (now, privacy) => redactStuck(await getStuckTasks(now), privacy),
   '/api/calendar': async (now, privacy) => redactCalendar(await getCalendar(now), privacy),
   '/api/activity': async (now, privacy) => redactActivity(await getActivity(now), privacy),
