@@ -993,6 +993,11 @@ function roomForState(state: OfficeState, index: number): Pick<OfficeStation, 'r
   if (state === 'Offline') return { room: 'Workspace', roomPosition: 'offline-station' }
   // Reviewing means a human decision is pending on a deliverable, which is project work
   // rather than desk work. Everything else that is not idle stays where it was.
+  // Honest limitation: `hermes kanban` has no `review` status (its statuses are triage,
+  // todo, scheduled, ready, running, blocked, done), and taskState() derives Reviewing only
+  // from a task in `review`. So this room is wired but unreachable on current Hermes — like
+  // Offline. It lights up automatically if a `review` status ever appears. Verified by
+  // server/project-room.test.ts; not reachable from live data.
   if (state === 'Reviewing') return { room: 'Project Room', roomPosition: 'review-table' }
   if (state === 'Collaborating') return { room: 'Workspace', roomPosition: 'meeting-area' }
   if (state === 'Working') return { room: 'Workspace', roomPosition: 'assigned-desk' }
