@@ -1,4 +1,10 @@
+import { displayAgentName } from './identity.ts'
 import { readWriteToken } from './write-token.ts'
+
+/** The name a task message should show: OM, not the internal profile id. */
+function displayLabel(name: string): string {
+  return displayAgentName(name).label
+}
 
 /**
  * The two admin forms: creating an agent and creating a Kanban task.
@@ -73,6 +79,6 @@ export async function createTaskForm(input: { title: string; board: string; assi
   if (input.body?.trim()) body.body = input.body.trim()
   const created = await post('/api/kanban/' + encodeURIComponent(input.board) + '/tasks', body, request)
   if (!created.ok) return created
-  const who = input.assignee?.trim()
-  return { ok: true, message: 'Task created' + (who ? ' and assigned to ' + who + '.' : '.') }
+  const assigned = input.assignee?.trim()
+  return { ok: true, message: 'Task created' + (assigned ? ' and assigned to ' + displayLabel(assigned) + '.' : '.') }
 }

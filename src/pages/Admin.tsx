@@ -71,10 +71,13 @@ function TaskForm() {
 
   const profilesKnown = runtime.status === 'ready' && runtime.data.profiles.availability === 'available'
   const used = tasks.status === 'ready' ? (tasks.data.tasks.data ?? []).map((task) => task.assignee) : []
-  const options = assigneeOptions({ ...(profilesKnown ? { profiles: runtime.data.profiles.data.map((profile) => profile.name) } : {}), used, profilesKnown })
-  const caveat = assigneeCaveat({ ...(profilesKnown ? { profiles: runtime.data.profiles.data.map((profile) => profile.name) } : {}), used, profilesKnown })
+  const profiles = profilesKnown ? runtime.data.profiles.data.map((profile) => profile.name) : []
+  const options = assigneeOptions({ ...(profilesKnown ? { profiles } : {}), used, profilesKnown })
+  const caveat = assigneeCaveat({ ...(profilesKnown ? { profiles } : {}), used, profilesKnown })
   const boards = tasks.status === 'ready' ? (tasks.data.boards ?? []) : []
-  const chosenBoard = board || boards.find((item) => item.current)?.slug || boards[0]?.slug || ''
+  // The real board is the one you want by default; the demo board only exists to show the UI.
+  const preferred = boards.find((item) => item.slug === 'divisia') ?? boards.find((item) => !/demo/.test(item.slug)) ?? boards.find((item) => item.current) ?? boards[0]
+  const chosenBoard = board || preferred?.slug || ''
   const problem = title.trim() ? taskTitleProblem(title) : undefined
 
   const submit = async () => {

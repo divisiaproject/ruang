@@ -55,6 +55,12 @@ describe('admin form requests', () => {
     expect(sent).toMatchObject({ url: '/api/kanban/divisia/tasks', title: 'Kurasi 10 akun', assignee: 'vendor-a', body: 'Done means ten rows.' })
   })
 
+  it('names the default profile OM in the confirmation, never the raw id', async () => {
+    const request = (async () => new Response(JSON.stringify({ ok: true }), { status: 200 })) as unknown as typeof fetch
+    const result = await createTaskForm({ title: 'Untuk OM', board: 'divisia', assignee: 'default' }, request)
+    expect(result).toMatchObject({ ok: true, message: 'Task created and assigned to OM.' })
+  })
+
   it('omits an empty assignee so the task is left unassigned', async () => {
     let sent: Record<string, unknown> = {}
     const request = (async (_url: string, init: RequestInit) => {
