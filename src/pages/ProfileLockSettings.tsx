@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { displayAgentName } from '../identity.ts'
 import { PinInput } from '../ProfileLock.tsx'
 import { usePolling } from '../polling.ts'
 import { profileLockRequest, useProfileLock, type ProfileLockStatus } from '../profile-lock.ts'
@@ -22,7 +23,7 @@ export function ProfileLockSettings() {
     <div className="settings-head"><div><p className="eyebrow">PRIVACY</p><h2 id="profile-lock-title">Profile lock</h2></div>{status && <span className={`badge ${status.enabled ? 'good' : 'muted'}`}>{status.enabled ? `On · ${status.agents.length} locked` : 'Off'}</span>}</div>
     <p className="muted">Like app lock on a phone: pick agents and set one 6-digit PIN. Locked agents still work and walk around the office, but their memory, files, Kanban tasks, cron job names, live activity and (for <code>default</code>) sessions and logs stay private until the PIN opens that agent in this browser for {status?.unlockMinutes ?? 15} minutes. The server withholds the data, not just the page.</p>
     {!status ? <p className="muted">Loading…</p> : <>
-      {status.enabled && <p className="small-note">Locked: {status.agents.length ? status.agents.map((agent) => `${agent}${status.unlocked.includes(agent) ? ' (unlocked here)' : ''}`).join(', ') : 'no agents yet'}.</p>}
+      {status.enabled && <p className="small-note">Locked: {status.agents.length ? status.agents.map((agent) => `${displayAgentName(agent).label}${status.unlocked.includes(agent) ? ' (unlocked here)' : ''}`).join(', ') : 'no agents yet'}.</p>}
       {message && mode === 'idle' && <p className="form-success" role="status">{message}</p>}
       {mode === 'idle' && <div className="access-actions">
         {status.enabled ? <>
@@ -70,7 +71,7 @@ function LockForm({ kind, agents, status, onDone, onCancel }: { kind: 'setup' | 
   const list = [...new Set([...agents, ...status.agents])]
   return <form className="access-setup" onSubmit={submit}>
     {choosing && <fieldset className="lock-agents"><legend className="field-label">Agents to lock</legend>
-      {list.length === 0 ? <p className="muted">No agents found.</p> : list.map((agent) => <label key={agent} className={`lock-agent${chosen.includes(agent) ? ' active' : ''}`}><input type="checkbox" checked={chosen.includes(agent)} onChange={() => toggle(agent)}/> {chosen.includes(agent) ? '🔒' : '🔓'} {agent}</label>)}
+      {list.length === 0 ? <p className="muted">No agents found.</p> : list.map((agent) => <label key={agent} className={`lock-agent${chosen.includes(agent) ? ' active' : ''}`} title={displayAgentName(agent).title}><input type="checkbox" checked={chosen.includes(agent)} onChange={() => toggle(agent)}/> {chosen.includes(agent) ? '🔒' : '🔓'} {displayAgentName(agent).label}</label>)}
     </fieldset>}
     {kind === 'setup' ? <>
       <PinInput id="lock-new-pin" value={pin} onChange={setPin} label="New 6-digit PIN" autoFocus/>

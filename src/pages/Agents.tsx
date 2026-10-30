@@ -1,4 +1,4 @@
-import { agentLabel } from '../format.ts'
+import { displayAgentName } from '../identity.ts'
 import type { OfficeSnapshot, RuntimeSnapshot } from '../types.ts'
 import { usePolling } from '../polling.ts'
 import { EmptyState, LoadingState, PageTitle, RuntimeBadge } from '../ui.tsx'
@@ -21,7 +21,7 @@ export function Agents({ runtime, pending = false }: { runtime: RuntimeSnapshot 
       return <article className="agent-card" key={card.id}>
         <span className="folder-glyph" aria-hidden="true"><PixelCharacter agent={card.id}/></span>
         <div className="agent-card-body">
-          <h2>{station?.privacy === 'locked' ? '🔒 ' : ''}{agentLabel(card.id)}</h2>
+          <h2 title={displayAgentName(card.id).title}>{station?.privacy === 'locked' ? '🔒 ' : ''}{displayAgentName(card.id).label}</h2>
           <p className="muted">{card.kind}</p>
           <dl>
             <div><dt>Model</dt><dd>{card.model}</dd></div>

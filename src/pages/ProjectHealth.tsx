@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { displayAgentName } from '../identity.ts'
 import { formatDateTime, orderedStatuses, statusTone } from '../format.ts'
 import { usePolling } from '../polling.ts'
 import type { BoardStatsSnapshot, KanbanStatusCounts, StuckSnapshot, StuckTask } from '../types.ts'
@@ -65,7 +66,7 @@ function StuckList({ tasks }: { tasks: StuckTask[] }) {
           <span className={`badge ${task.reason === 'blocked' ? 'bad' : 'info'}`}>{task.reason === 'blocked' ? 'blocked' : 'waiting'}</span>{' '}
           <strong>{task.title}</strong>{' '}
           {task.board && <span className="chip">{task.board}</span>}{' '}
-          {task.assignee && <span className="chip">{task.assignee}</span>}{' '}
+          {task.assignee && <span className="chip" title={displayAgentName(task.assignee).title}>{displayAgentName(task.assignee).label}</span>}{' '}
           {task.ageHours !== undefined && <span className="muted">{humanDuration(task.ageHours * 3600)} old</span>}
         </li>
       ))}

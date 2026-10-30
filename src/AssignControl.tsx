@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { usePolling } from './polling.ts'
 import { assigneeCaveat, assigneeOptions, type AssigneeInput } from './assignees.ts'
+import { displayAgentName } from './identity.ts'
 import { readWriteToken, sendWrite } from './write-token.ts'
 import type { RuntimeSnapshot, TaskBoardSnapshot } from './types.ts'
 
@@ -58,8 +59,8 @@ export function AssignControl({ taskId, board, current, onDone }: { taskId?: str
     <div className="task-action-row">
       <select className="task-action-input" value={current ?? ''} onChange={(event) => void assign(event.target.value)} disabled={pending} aria-label="Assignee">
         <option value="">{current ? `Current: ${current}` : 'Unassigned'}</option>
-        {options.filter((option) => option.value !== current).map((option) => <option key={`${option.kind}-${option.value}`} value={option.value}>
-          {option.value} · {option.kind}
+        {options.filter((option) => option.value !== current).map((option) => <option key={`${option.kind}-${option.value}`} value={option.value} title={option.kind === 'agent' ? displayAgentName(option.value).title : undefined}>
+          {option.kind === 'agent' ? displayAgentName(option.value).label : option.value} · {option.kind}
         </option>)}
       </select>
     </div>

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { displayAgentName } from '../identity.ts'
 import { formatCompact, formatNumber } from '../format.ts'
 import { usePolling } from '../polling.ts'
 import type { UsageSnapshot } from '../types.ts'
@@ -30,9 +31,9 @@ export function TokenUsage({ initialDays = 7 }: { initialDays?: Period }) {
   const data = usage.status === 'ready' && Array.isArray(usage.data.agents) ? usage.data : undefined
   const totals = data?.totals
   const agentRows: Row[] = (data?.agents ?? []).map((agent) => agent.usage
-    ? { key: agent.agent, label: agent.agent, value: agent.usage.totalTokens, muted: agent.usage.totalTokens === 0,
-      detail: `${agent.agent}: ${formatNumber(agent.usage.totalTokens)} tokens (${formatNumber(agent.usage.inputTokens)} in / ${formatNumber(agent.usage.outputTokens)} out) · ${formatNumber(agent.usage.sessions)} sessions · est. ${formatCost(agent.usage.costUsd)}${agent.usage.topSession ? ` · biggest session ${formatNumber(agent.usage.topSession.tokens)} tokens (${agent.usage.topSession.date})` : ''}` }
-    : { key: agent.agent, label: agent.agent, value: 0, muted: true, note: 'Not Available', detail: `${agent.agent}: ${agent.error ?? 'hermes insights could not be read.'}` })
+    ? { key: agent.agent, label: displayAgentName(agent.agent).label, value: agent.usage.totalTokens, muted: agent.usage.totalTokens === 0,
+      detail: `${displayAgentName(agent.agent).label}: ${formatNumber(agent.usage.totalTokens)} tokens (${formatNumber(agent.usage.inputTokens)} in / ${formatNumber(agent.usage.outputTokens)} out) · ${formatNumber(agent.usage.sessions)} sessions · est. ${formatCost(agent.usage.costUsd)}${agent.usage.topSession ? ` · biggest session ${formatNumber(agent.usage.topSession.tokens)} tokens (${agent.usage.topSession.date})` : ''}` }
+    : { key: agent.agent, label: displayAgentName(agent.agent).label, value: 0, muted: true, note: 'Not Available', detail: `${displayAgentName(agent.agent).label}: ${agent.error ?? 'hermes insights could not be read.'}` })
   const sourceTotal = (data?.sources ?? []).reduce((sum, source) => sum + source.tokens, 0)
   const modelTotal = (data?.models ?? []).reduce((sum, model) => sum + model.tokens, 0)
   const top = data?.agents.find((agent) => (agent.usage?.totalTokens ?? 0) > 0)
@@ -53,7 +54,7 @@ export function TokenUsage({ initialDays = 7 }: { initialDays?: Period }) {
         <div><dt>Messages</dt><dd>{formatNumber(totals.messages)}</dd></div>
         <div><dt>Tool calls</dt><dd>{formatNumber(totals.toolCalls)}</dd></div>
       </dl>
-      {top?.usage && <p className="card-note">Top consumer: <b>{top.agent}</b> · {formatCompact(top.usage.totalTokens)} tokens · {share(top.usage.totalTokens, totals.totalTokens)} of all</p>}
+      {top?.usage && <p className="card-note">Top consumer: <b title={displayAgentName(top.agent).title}>{displayAgentName(top.agent).label}</b> · {formatCompact(top.usage.totalTokens)} tokens · {share(top.usage.totalTokens, totals.totalTokens)} of all</p>}
       {totals.totalTokens === 0 && agentRows.every((row) => !row.note) ? <p className="muted">No sessions in this period.</p> : <div className="usage-sections">
         <section><h3>By agent</h3><BarRows label="Tokens by agent" rows={agentRows} total={totals.totalTokens}/></section>
         {data.sources.length > 0 && <section><h3>By kind of work</h3><BarRows label="Tokens by kind of work" total={sourceTotal} rows={data.sources.map((source) => ({ key: source.source, label: sourceLabel(source.source), value: source.tokens, detail: `${sourceLabel(source.source)}: ${formatNumber(source.tokens)} tokens · ${formatNumber(source.sessions)} sessions` }))}/></section>}

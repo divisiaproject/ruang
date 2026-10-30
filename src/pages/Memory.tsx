@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { displayAgentName } from '../identity.ts'
 import { formatDateTime, formatNumber } from '../format.ts'
 import { usePolling } from '../polling.ts'
 import type { AgentMemory, MemoryDocument, MemorySnapshot, MemoryStore } from '../types.ts'
@@ -97,7 +98,7 @@ export function Memory({ onOpenFolders }: { onOpenFolders?: () => void }) {
         const peak = Math.max(item.memory?.percent ?? 0, item.user?.percent ?? 0)
         return <button key={item.profile} role="tab" aria-selected={item.profile === agent.profile} className={`memory-tab${item.profile === agent.profile ? ' active' : ''}`} onClick={() => setSelected(item.profile)} disabled={!item.available && !item.locked}>
           <span className="folder-glyph small" aria-hidden="true"><PixelCharacter agent={item.profile}/></span>
-          <span><strong>{item.locked ? '🔒 ' : ''}{item.label}</strong><small>{!item.available ? item.reason ?? 'not available' : item.kind === 'opencode' ? `${item.contextFiles.length} rules file(s)` : `${(item.memory?.entries.length ?? 0) + (item.user?.entries.length ?? 0)} entries · ${peak}% peak`}</small></span>
+          <span><strong title={displayAgentName(item.profile).title}>{item.locked ? '🔒 ' : ''}{displayAgentName(item.profile).label}</strong><small>{!item.available ? item.reason ?? 'not available' : item.kind === 'opencode' ? `${item.contextFiles.length} rules file(s)` : `${(item.memory?.entries.length ?? 0) + (item.user?.entries.length ?? 0)} entries · ${peak}% peak`}</small></span>
         </button>
       })}</div>
       <PrivateGate agent={agent.profile}>{agent.locked ? <ProfileUnlock agent={agent.profile}/> : <AgentPanel key={agent.profile} agent={agent} onOpenFolders={onOpenFolders}/>}</PrivateGate>

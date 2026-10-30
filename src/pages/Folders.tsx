@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { LOCKED_EVENT } from '../access.ts'
+import { displayAgentName } from '../identity.ts'
 import { formatBytes, formatDateTime } from '../format.ts'
 import { usePolling } from '../polling.ts'
 import type { RequestState } from '../request-state.ts'
@@ -70,7 +71,7 @@ function Browser({ agent, onBack }: { agent: FolderAgent; onBack?: () => void })
   return <>
     <nav className="breadcrumb" aria-label="Folder path">
       {onBack && <><button type="button" onClick={onBack}>All agents</button><span>/</span></>}
-      <button type="button" onClick={() => open('')} aria-current={!directory ? 'page' : undefined} title={agent.path}>{agent.label} <small>{agent.path}</small></button>
+      <button type="button" onClick={() => open('')} aria-current={!directory ? 'page' : undefined} title={agent.path}>{displayAgentName(agent.profile).label} <small>{agent.path}</small></button>
       {parts.map((part, index) => <span key={index} className="crumb"><span>/</span><button type="button" onClick={() => open(parts.slice(0, index + 1).join('/'))} aria-current={index === parts.length - 1 ? 'page' : undefined}>{part}</button></span>)}
       <button type="button" className="refresh-button crumb-refresh" onClick={listing.reload}>↻ REFRESH</button>
     </nav>
@@ -118,7 +119,7 @@ export function Folders() {
     <Unavailable source={source} request={snapshot}/>
     {snapshot.status === 'pending' ? <LoadingState message="Finding agent folders..."/> : agent ? <><PrivateGate agent={agent.profile}><Browser key={agent.profile} agent={agent} onBack={() => setOpenAgent(undefined)}/></PrivateGate>{agentPrivacy(lock, agent.profile) === 'locked' && <button type="button" className="refresh-button" onClick={() => setOpenAgent(undefined)}>← ALL AGENTS</button>}</> : data && <section className="folder-agents">{data.agents.map((item) => <button type="button" key={item.profile} className="folder-agent" disabled={!item.available} onClick={() => setOpenAgent(item.profile)}>
       <span className="folder-glyph" aria-hidden="true"><PixelCharacter agent={item.profile}/></span>
-      <span className="folder-meta"><strong>{agentPrivacy(lock, item.profile) === 'locked' && '🔒 '}{item.label}</strong><code className="folder-path">{item.path}</code><small>{item.available ? 'Open folder →' : item.reason ?? 'Folder not available'}</small>{item.warning && <small className="text-bad">⚠ {item.warning}</small>}</span>
+      <span className="folder-meta"><strong title={displayAgentName(item.profile).title}>{agentPrivacy(lock, item.profile) === 'locked' && '🔒 '}{displayAgentName(item.profile).label}</strong><code className="folder-path">{item.path}</code><small>{item.available ? 'Open folder →' : item.reason ?? 'Folder not available'}</small>{item.warning && <small className="text-bad">⚠ {item.warning}</small>}</span>
     </button>)}</section>}
   </>
 }
