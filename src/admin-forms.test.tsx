@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { agentNameFrom, agentNameProblem, createAgentForm, createTaskForm, taskTitleProblem } from './admin-forms.ts'
+import { agentNameFrom, agentNameProblem, createAgentForm, createTaskForm, defaultBoard, taskTitleProblem } from './admin-forms.ts'
 
 // The forms refuse to send without a stored write token; give them one without touching storage.
 vi.mock('./write-token.ts', () => ({ readWriteToken: () => 'test-write-token' }))
@@ -76,5 +76,26 @@ describe('admin form requests', () => {
     const request = (async () => { called = true; return new Response('{}', { status: 200 }) }) as unknown as typeof fetch
     expect(await createTaskForm({ title: '', board: 'divisia' }, request)).toMatchObject({ ok: false })
     expect(called).toBe(false)
+  })
+})
+
+describe('defaultBoard', () => {
+  // The live host really looks like this: no `divisia` board, real work in `default`.
+  const live = [{ slug: 'default', current: true, total: 1 }, { slug: 'divisia-demo', current: false, total: 11 }]
+
+  it('picks the current real board, not the demo board with more tasks', () => {
+    expect(defaultBoard(live)).toBe('default')
+  })
+
+  it('picks a real board with tasks when it is not the current one', () => {
+    expect(defaultBoard([{ slug: 'divisia-demo', current: true, total: 11 }, { slug: 'default', current: false, total: 3 }])).toBe('default')
+  })
+
+  it('falls back to a demo board only when nothing real exists', () => {
+    expect(defaultBoard([{ slug: 'divisia-demo', current: true, total: 11 }])).toBe('divisia-demo')
+  })
+
+  it('has nothing to pick from an empty list', () => {
+    expect(defaultBoard([])).toBeUndefined()
   })
 })

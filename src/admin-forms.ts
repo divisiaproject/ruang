@@ -63,6 +63,16 @@ export async function createAgentForm(input: { name: string; model?: string }, r
   return { ok: true, message: 'Agent ' + input.name.trim() + ' created.' }
 }
 
+/** Which board the form should preselect. A demo board is sampled data, so it always loses. */
+export function defaultBoard(boards: { slug: string; current?: boolean; total?: number }[]): string | undefined {
+  const real = boards.filter((board) => !/demo/.test(board.slug))
+  const pick = real.find((board) => board.current)
+    ?? real.find((board) => (board.total ?? 0) > 0)
+    ?? boards.find((board) => board.current)
+    ?? boards[0]
+  return pick?.slug
+}
+
 export function taskTitleProblem(title: string): string | undefined {
   const trimmed = title.trim()
   if (!trimmed) return 'Enter a title for the task.'

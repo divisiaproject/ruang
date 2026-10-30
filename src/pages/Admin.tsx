@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { agentNameFrom, agentNameProblem, createAgentForm, createTaskForm, taskTitleProblem, type FormResult } from '../admin-forms.ts'
+import { agentNameFrom, agentNameProblem, createAgentForm, createTaskForm, defaultBoard, taskTitleProblem, type FormResult } from '../admin-forms.ts'
 import { displayAgentName } from '../identity.ts'
 import { usePolling } from '../polling.ts'
 import { readWriteToken, writeWriteToken } from '../write-token.ts'
@@ -75,9 +75,8 @@ function TaskForm() {
   const options = assigneeOptions({ ...(profilesKnown ? { profiles } : {}), used, profilesKnown })
   const caveat = assigneeCaveat({ ...(profilesKnown ? { profiles } : {}), used, profilesKnown })
   const boards = tasks.status === 'ready' ? (tasks.data.boards ?? []) : []
-  // The real board is the one you want by default; the demo board only exists to show the UI.
-  const preferred = boards.find((item) => item.slug === 'divisia') ?? boards.find((item) => !/demo/.test(item.slug)) ?? boards.find((item) => item.current) ?? boards[0]
-  const chosenBoard = board || preferred?.slug || ''
+  // Prefer the board Hermes itself calls current, and never preselect a demo board when a real one exists.
+  const chosenBoard = board || defaultBoard(boards) || ''
   const problem = title.trim() ? taskTitleProblem(title) : undefined
 
   const submit = async () => {
