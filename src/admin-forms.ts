@@ -22,11 +22,11 @@ async function post(path: string, body: Record<string, unknown>, request: typeof
   try {
     response = await request(path, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: 'Bearer ' + token },
+      headers: { 'content-type': 'application/json', 'x-ruang-request': '1', authorization: 'Bearer ' + token },
       body: JSON.stringify(body),
     })
   } catch {
-    return { ok: false, message: 'The Ruang API could not be reached.' }
+    return { ok: false, message: 'The browser could not complete the request. Check the connection, then reload this page.' }
   }
   const payload = await response.json().catch(() => undefined) as Record<string, unknown> | undefined
   if (!response.ok) {

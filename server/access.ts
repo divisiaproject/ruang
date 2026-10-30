@@ -275,6 +275,10 @@ export function installAccess(app: Express, store = new AccessStore(), throttle 
     return status(request)
   }))
   app.use('/api', async (request: Request, response: Response, next: NextFunction) => {
+    // A CORS preflight carries no cookie, so answering it 401 would stop every write form before
+    // its real request is ever sent. Ruang answers no CORS headers, so a cross-site page gains
+    // nothing by passing this: the browser still blocks the response.
+    if (request.method === 'OPTIONS') { next(); return }
     if (request.path === '/health' || request.path === '/access' || request.path.startsWith('/access/')) { next(); return }
     if (await unlocked(request)) { next(); return }
     response.status(401).json({ error: 'Ruang is locked. Enter the access code.', locked: true })
