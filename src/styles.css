@@ -873,3 +873,11 @@ aside.office-panel { background: color-mix(in srgb, var(--surface) 96%, transpar
 .admin-forms .task-textarea { font: 13px ui-monospace, monospace; line-height: 1.5; min-height: 96px; padding: 11px; resize: vertical; }
 .admin-forms .small-note { display: block; margin-top: 7px; }
 .admin-forms .file-notice, .admin-forms .form-success { margin-top: 12px; }
+
+/* A failed unit carries its reason: name, exit code, Active line, last journal error. */
+.stuck-list .failed-unit { display: block; padding-bottom: 12px; }
+.stuck-list .failed-unit + .failed-unit { border-top: 1px solid var(--c-313831); padding-top: 12px; }
+.failed-unit-desc { color: var(--c-cbd1c9); }
+.failed-unit-detail { color: var(--c-9ea79e); display: block; font-size: 12px; margin-top: 5px; }
+.failed-unit-detail code { background: var(--c-263129); border-radius: 3px; padding: 1px 4px; }
+.failed-unit-error { color: var(--c-eab474); display: block; font: 12px ui-monospace, monospace; margin-top: 5px; overflow-wrap: anywhere; }

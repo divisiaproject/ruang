@@ -18,7 +18,22 @@ export interface HostDisk { mount?: string; device?: string; fstype?: string; to
 export interface HostNetwork { bytes_sent?: number; bytes_recv?: number; interfaces?: string[] }
 export interface HostProcess { pid?: number; name?: string; user?: string; cpu?: number; mem_percent?: number; rss_mb?: number; cmd?: string }
 export interface HostDocker { available?: boolean; count?: number; reason?: string; containers?: { id?: string; name?: string; status?: string; image?: string }[] }
-export interface HostUnit { unit: string; state: string }
+/**
+ * A failed unit. Name and state are always present; the rest is filled in when the host agent
+ * could read `systemctl status` / `journalctl` for it, and simply absent when it could not.
+ */
+export interface HostUnit {
+  unit: string
+  state: string
+  /** The unit's human name, e.g. "Rotate log files". */
+  description?: string
+  /** The Active: line, e.g. "failed (Result: exit-code) since ...". */
+  active?: string
+  /** The exit status, e.g. "1/FAILURE". */
+  exit_code?: string
+  /** The last error line from the journal. */
+  last_error?: string
+}
 
 export interface HostTelemetry {
   agent: { kind?: string; uptime_seconds?: number; hostname?: string; platform?: string; machine?: string; python?: string }

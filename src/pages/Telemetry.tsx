@@ -80,7 +80,16 @@ export function Telemetry() {
         {host.failed_units.length > 0 && <>
           <p className="eyebrow">FAILED SYSTEMD UNITS</p>
           <ul className="stuck-list">
-            {host.failed_units.map((unit) => <li key={unit.unit}><b>{unit.unit}</b> <span className="chip chip-muted">{unit.state}</span></li>)}
+            {host.failed_units.map((unit) => <li key={unit.unit} className="failed-unit">
+              <b>{unit.unit}</b> <span className="chip chip-muted">{unit.state}</span>
+              {unit.description && <span className="failed-unit-desc"> — {unit.description}</span>}
+              {(unit.exit_code || unit.active) && <span className="failed-unit-detail">
+                {unit.exit_code && <>exit <code>{unit.exit_code}</code>{unit.active ? ' · ' : ''}</>}
+                {unit.active && <span className="muted">{unit.active}</span>}
+              </span>}
+              {unit.last_error && <span className="failed-unit-error">“{unit.last_error}”</span>}
+              {!unit.exit_code && !unit.last_error && <span className="failed-unit-detail muted">The reason could not be read. Check <code>systemctl status {unit.unit}</code> on the host.</span>}
+            </li>)}
           </ul>
         </>}
         {host.docker.containers && host.docker.containers.length > 0 && <>

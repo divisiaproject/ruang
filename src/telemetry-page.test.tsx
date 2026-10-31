@@ -67,3 +67,35 @@ describe('Telemetry page', () => {
     expect(render()).toContain('rejected the token')
   })
 })
+
+// The agent now reports why a unit failed, not only that it did. This is the payload shape
+// `host_agent.py` builds from `systemctl status` + `journalctl` on the live host.
+describe('Telemetry page: why a unit failed', () => {
+  const WITH_REASON = {
+    ...REAL_HOST,
+    failed_units: [{
+      unit: 'logrotate.service',
+      state: 'failed',
+      description: 'Rotate log files',
+      active: 'failed (Result: exit-code) since Sat 2026-10-31 00:06:28 UTC; 8h ago',
+      exit_code: '1/FAILURE',
+      last_error: 'error: cloud-init-base:1 duplicate log entry for /var/log/cloud-init-output.log',
+    }],
+  }
+
+  it('shows the reason, the exit code and the journal line', () => {
+    wire({ availability: 'available', data: WITH_REASON, fetchedAt: '2026-10-31T08:24:00.000Z' })
+    const markup = render()
+    expect(markup).toContain('logrotate.service')
+    expect(markup).toContain('Rotate log files')
+    expect(markup).toContain('1/FAILURE')
+    expect(markup).toContain('duplicate log entry')
+  })
+
+  it('admits when the reason could not be read instead of showing a bare name', () => {
+    wire({ availability: 'available', data: { ...REAL_HOST, failed_units: [{ unit: 'foo.service', state: 'failed' }] }, fetchedAt: '2026-10-31T08:24:00.000Z' })
+    const markup = render()
+    expect(markup).toContain('The reason could not be read')
+    expect(markup).toContain('systemctl status foo.service')
+  })
+})

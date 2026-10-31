@@ -10,7 +10,14 @@ export interface HostMemory { total?: number; available?: number; used?: number;
 export interface HostDisk { mount?: string; device?: string; fstype?: string; total?: number; used?: number; percent?: number }
 export interface HostProcess { pid?: number; name?: string; user?: string; cpu?: number; mem_percent?: number; rss_mb?: number; cmd?: string }
 export interface HostDocker { available?: boolean; count?: number; reason?: string; containers?: { id?: string; name?: string; status?: string; image?: string }[] }
-export interface HostUnit { unit: string; state: string }
+export interface HostUnit {
+  unit: string
+  state: string
+  description?: string
+  active?: string
+  exit_code?: string
+  last_error?: string
+}
 
 export interface HostTelemetry {
   agent: { kind?: string; uptime_seconds?: number; hostname?: string; platform?: string; machine?: string; python?: string }
