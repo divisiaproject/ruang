@@ -229,6 +229,9 @@ export function installKanbanWrites(app: Express, roleOf?: (request: Request) =>
   }
 
   const requireToken = async (request: Request, response: Response, next: NextFunction) => {
+    // A browser preflight carries neither cookie nor token; letting it through is what allows the
+    // real POST to be sent at all. Ruang answers no CORS headers, so this grants nothing cross-site.
+    if (request.method === 'OPTIONS') return next()
     // A vendor session may read the board but must never write to it.
     if (roleOf && (await roleOf(request)) === 'vendor') return response.status(403).json({ error: 'Only an admin session can write.', adminOnly: true })
     if (!authorised(request, token)) return response.status(401).json({ error: 'Write token required.', enabled: true })

@@ -5,6 +5,8 @@ import { join } from 'node:path'
 import express from 'express'
 import { afterEach, describe, expect, it } from 'vitest'
 import { AccessStore, installAccess } from './access.js'
+import { installAgentWrites } from './agents-write.js'
+import { installKanbanWrites } from './kanban-write.js'
 
 // A locked Ruang still has to answer the browser's preflight, or every write form dies
 // in the browser before its real request is sent. This is the bug that made a successful
@@ -18,6 +20,8 @@ async function locked() {
   const store = new AccessStore(dir)
   await store.set('admin-code-for-tests')  // a code set means Ruang starts locked
   const app = express()
+  installAgentWrites(app)
+  installKanbanWrites(app)
   installAccess(app, store)
   app.post('/api/agents', (_request, response) => { response.json({ ok: true }) })
   app.get('/api/tasks', (_request, response) => { response.json({ ok: true }) })
@@ -44,5 +48,19 @@ describe('CORS preflight through the access gate', () => {
     const base = await locked()
     const response = await fetch(`${base}/api/tasks`)
     expect(response.status).toBe(401)
+  })
+})
+
+describe('CORS preflight through the write layers', () => {
+  // These layers used to reject OPTIONS with 401 before the access gate ever saw it, which is
+  // exactly why a form that had already created an agent still reported "could not be reached".
+  it('answers OPTIONS on the agent and kanban write routes', async () => {
+    process.env.RUANG_WRITE_TOKEN = 'preflight-test-token'
+    const base = await locked()
+    for (const path of ['/api/agents', '/api/kanban/default/tasks']) {
+      const response = await fetch(`${base}${path}`, { method: 'OPTIONS', headers: { origin: base, 'access-control-request-method': 'POST' } })
+      expect(response.status, path).not.toBe(401)
+    }
+    delete process.env.RUANG_WRITE_TOKEN
   })
 })

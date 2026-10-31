@@ -221,6 +221,9 @@ export function installAgentWrites(app: Express, roleOf?: (request: Request) => 
   }
 
   app.use('/api/agents', express.json({ limit: '16kb' }), async (request: Request, response: Response, next: NextFunction) => {
+    // A browser preflight carries neither cookie nor token; letting it through is what allows the
+    // real POST to be sent at all. Ruang answers no CORS headers, so this grants nothing cross-site.
+    if (request.method === 'OPTIONS') return next()
     // A vendor session may read the board but must never create or change an agent.
     if (roleOf && (await roleOf(request)) === 'vendor') return response.status(403).json({ error: 'Only an admin session can manage agents.', adminOnly: true })
     if (!authorised(request, token)) {
