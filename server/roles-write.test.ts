@@ -74,3 +74,32 @@ describe('write layers honour the session role', () => {
     expect(response.status).toBe(401)
   })
 })
+
+// The built-in profile has no directory under ~/.hermes/profiles, so an existence check that
+// only looks there used to answer NOT_FOUND for `default` — a misleading error that suggests the
+// profile is gone rather than protected. This pins the real answer.
+describe('the protected built-in profile', () => {
+  it('refuses to set its model, saying it is protected rather than missing', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'ruang-protected-'))
+    process.env.HOME = home
+    process.env.RUANG_WRITE_TOKEN = 'protected-token'
+    const app = express()
+    installAgentWrites(app)
+    const server = app.listen(0, '127.0.0.1')
+    const shut = () => server.close()
+    await new Promise((resolve) => server.once('listening', resolve))
+    const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
+
+    const response = await fetch(`${base}/api/agents/default/config`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-ruang-request': '1', authorization: 'Bearer protected-token' },
+      body: JSON.stringify({ key: 'model.default', value: 'deepseek-v4.1-flash' }),
+    })
+    const body = await response.json() as { code?: string; error?: string }
+    expect(response.status).toBe(403)
+    expect(body.code).toBe('PROTECTED')
+    expect(body.error).toMatch(/protected/)
+    shut()
+    delete process.env.RUANG_WRITE_TOKEN
+  })
+})

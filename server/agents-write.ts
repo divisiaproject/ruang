@@ -95,10 +95,13 @@ function requireName(value: unknown, field = 'name'): string {
 
 async function existingProfiles(): Promise<string[]> {
   // Read the profile directories directly: cheap, and avoids parsing a table.
+  // The built-in profile has no directory of its own, so it is added explicitly: without it
+  // every operation on `default` reported NOT_FOUND instead of the protection it really has.
   const root = join(homedir(), '.hermes', 'profiles')
-  if (!existsSync(root)) return []
-  const entries = await readdir(root, { withFileTypes: true })
-  return entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name)
+  const names = existsSync(root)
+    ? (await readdir(root, { withFileTypes: true })).filter((entry) => entry.isDirectory()).map((entry) => entry.name)
+    : []
+  return names.includes(PROTECTED) ? names : [PROTECTED, ...names]
 }
 
 async function assertMissing(name: string): Promise<void> {
@@ -163,6 +166,9 @@ export async function createAgent(input: Record<string, unknown>): Promise<{ nam
 
 export async function configureAgent(name: unknown, key: unknown, value: unknown): Promise<{ name: string; key: string }> {
   const profile = requireName(name)
+  // The built-in profile is protected: refuse it as protected, before anything else can report
+  // it as missing. This form never changes the model of the agent that runs Ruang itself.
+  if (profile === PROTECTED) throw new WriteError('The default profile is protected and its model is not changed here.', 403, 'PROTECTED')
   await assertExists(profile)
   const setting = typeof key === 'string' ? key.trim() : ''
   // Only allow the documented dotted config keys; nothing shell-like.
