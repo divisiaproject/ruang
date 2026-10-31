@@ -1,5 +1,6 @@
 import { execFile as execFileCallback } from 'node:child_process'
 import { promisify } from 'node:util'
+import { currentModelRow, parseCustomProviders, providerModels } from './models.js'
 
 const execFile = promisify(execFileCallback)
 const CACHE_MS = 10_000
@@ -1126,6 +1127,7 @@ function cachedSource<T>(collect: () => Promise<T>, ttl = CACHE_MS) {
 const runtimeSource = cachedSource(() => collectSnapshot())
 const taskBoardSource = cachedSource(() => collectTaskBoard())
 const boardStatsSource = cachedSource(() => collectBoardStats())
+const modelsSource = cachedSource(() => collectModels())
 const calendarSource = cachedSource(() => collectCalendar())
 const activitySource = cachedSource(() => collectActivity())
 const knowledgeSource = cachedSource(() => collectKnowledge())
@@ -1145,6 +1147,9 @@ const agentActivitySource = cachedSource(async () => {
 export function getSnapshot(now = Date.now()): Promise<RuntimeSnapshot> { return runtimeSource(now) }
 export function clearSnapshotCache(): void { runtimeSource.clear() }
 export function getTaskBoard(now = Date.now()): Promise<TaskBoardSnapshot> { return taskBoardSource(now) }
+
+/** Every model a profile could switch to, grouped by provider. */
+export function getModels(now = Date.now()): Promise<ModelsSnapshot> { return modelsSource(now) }
 
 /** Per-board `hermes kanban stats` counts, keyed by board slug. */
 export function getBoardStats(now = Date.now()): Promise<Source<Record<string, KanbanStatusCounts>>> { return boardStatsSource(now) }
@@ -1183,4 +1188,46 @@ export async function getDashboard(now = Date.now()): Promise<DashboardSnapshot>
   const [runtime, board, calendar, activity, knowledge, channels, agentActivity] = await Promise.all([getSnapshot(now), getTaskBoard(now), getCalendar(now), getActivity(now), getKnowledge(now), getChannels(now), agentActivitySource(now)])
   const office = buildOfficeSnapshot(runtime, board, activity, { agentActivity })
   return buildDashboard({ runtime, board, calendar, activity, knowledge, channels, office, commands: commandHealth() })
+}
+
+// --- Model catalogue --------------------------------------------------------
+
+export interface ModelOption { id: string; provider: string; current: boolean; default: boolean }
+
+export interface ModelsSnapshot {
+  availability: Availability
+  data: ModelOption[]
+  /** Providers with no `models:` block in the config; their list cannot be read without a live call. */
+  emptyProviders: { name: string; baseUrl?: string }[]
+  fetchedAt: string
+  error?: { message: string }
+}
+
+/**
+ * Every model a profile could be switched to, across all configured providers.
+ *
+ * The running model is always included, even when no catalogue lists it: that value is what the
+ * profile truly executes, while the catalogues can be stale or empty.
+ */
+export async function collectModels(run: Run = systemRun): Promise<ModelsSnapshot> {
+  const fetchedAt = new Date().toISOString()
+  const runtime = await getSnapshot()
+  const currentModel = runtime.profiles.availability === 'available'
+    ? runtime.profiles.data.find((profile) => profile.name === 'default')?.model
+    : undefined
+  try {
+    const output = await run('hermes', ['config', 'get', 'custom_providers'])
+    const providers = parseCustomProviders(output)
+    const rows = providerModels(providers, currentModel === 'Not configured' ? undefined : currentModel)
+    const running = currentModelRow(providers, currentModel === 'Not configured' ? undefined : currentModel)
+    const data = running && !rows.some((row) => row.id === running.id) ? [running, ...rows] : rows
+    return {
+      availability: 'available',
+      data,
+      emptyProviders: providers.filter((provider) => provider.models.length === 0).map((provider) => ({ name: provider.name, ...(provider.baseUrl ? { baseUrl: provider.baseUrl } : {}) })),
+      fetchedAt,
+    }
+  } catch (error) {
+    return { availability: 'unavailable', data: [], emptyProviders: [], fetchedAt, error: { message: (error as Error)?.message ?? String(error) } }
+  }
 }

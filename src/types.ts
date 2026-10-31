@@ -13,6 +13,18 @@ export interface KanbanBoard { slug: string; name: string; current: boolean; tot
 export interface ScheduledJob { private?: boolean; name: string; schedule: string; id?: string; nextRun?: string; overdue?: boolean; status?: string; repeat?: string; lastRun?: string; lastRunOk?: boolean; agent?: string }
 export interface Session { title: string; preview: string; lastActive: string; id?: string; workspace?: string; source?: string; actor?: string; active?: boolean }
 export interface Skill { name: string; category: string; source: string; trust: string; status: 'enabled' }
+/** One selectable model and the provider that listed it. */
+export interface ModelOption { id: string; provider: string; current: boolean; default: boolean }
+
+export interface ModelsSnapshot {
+  availability: 'available' | 'unavailable'
+  data: ModelOption[]
+  /** Providers whose config carries no `models:` block, so their list is simply unknown. */
+  emptyProviders: { name: string; baseUrl?: string }[]
+  fetchedAt: string
+  error?: { message: string }
+}
+
 export interface TaskBoardSnapshot { tasks: Source<Task[]>; boards?: KanbanBoard[]; failedBoards?: string[]; fetchedAt: string }
 /** Per-board `hermes kanban stats`. `oldestReadySeconds` is absent on an empty board. */
 export interface KanbanStatusCounts { byStatus: Record<string, number>; total: number; oldestReadySeconds?: number }

@@ -1,13 +1,11 @@
 import { useState } from 'react'
-import { agentNameFrom, agentNameProblem, createAgentForm, createTaskForm, defaultBoard, taskTitleProblem, type FormResult } from '../admin-forms.ts'
+import { agentNameFrom, agentNameProblem, createAgentForm, createTaskForm, defaultBoard, modelNote, taskTitleProblem, type FormResult } from '../admin-forms.ts'
 import { displayAgentName } from '../identity.ts'
 import { usePolling } from '../polling.ts'
 import { readWriteToken, writeWriteToken } from '../write-token.ts'
 import { assigneeCaveat, assigneeOptions } from '../assignees.ts'
-import type { RuntimeSnapshot, TaskBoardSnapshot } from '../types.ts'
+import type { ModelsSnapshot, RuntimeSnapshot, TaskBoardSnapshot } from '../types.ts'
 import { PageTitle } from '../ui.tsx'
-
-const MODELS = ['deepseek-v4.1-flash', 'deepseek-v4.1-flash-1017', 'minimax-m3.1-flash']
 
 function Result({ result }: { result?: FormResult }) {
   if (!result) return null
@@ -35,6 +33,12 @@ function AgentForm() {
   const [model, setModel] = useState('')
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<FormResult>()
+  const models = usePolling<ModelsSnapshot>('/api/models', 60_000)
+  const available = models.status === 'ready' && models.data.availability === 'available'
+  const options = available ? models.data.data : []
+    const emptyProviders = available ? models.data.emptyProviders : []
+  // Say exactly what was read: a provider with no models block is named, never filled in.
+  const note = modelNote({ available, models: options, emptyProviders })
   const problem = name.trim() ? agentNameProblem(name) : undefined
   const submit = async () => {
     setBusy(true)
@@ -50,8 +54,9 @@ function AgentForm() {
     <small id="agent-name-help" className="small-note">Lowercase letters and digits only, no hyphens. The name identifies the profile everywhere, so it cannot be renamed here later.</small>
     {problem && <p className="file-notice">{problem}</p>}
     <label className="field-label" htmlFor="agent-model">Model</label>
-    <input id="agent-model" className="task-action-input" list="agent-models" value={model} placeholder="Leave empty to inherit the default" onChange={(event) => setModel(event.target.value)}/>
-    <datalist id="agent-models">{MODELS.map((item) => <option key={item} value={item}/>)}</datalist>
+    <input id="agent-model" className="task-action-input" list="agent-models" value={model} placeholder="Leave empty to inherit the default" onChange={(event) => setModel(event.target.value)} aria-describedby="agent-model-help"/>
+    <datalist id="agent-models">{options.map((item) => <option key={item.provider + '/' + item.id} value={item.id} label={item.provider}/>)}</datalist>
+    <small id="agent-model-help" className="small-note">{note}</small>
     <div className="task-action-row">
       <button type="button" className="primary-button" onClick={() => void submit()} disabled={busy || Boolean(problem) || !name.trim()}>{busy ? 'Creating…' : 'Create agent'}</button>
     </div>

@@ -10,7 +10,7 @@ import { redactActivity, redactCalendar, redactDashboard, redactLogs, redactMemo
 import { installProfileLock, isHidden, type Privacy } from './profile-lock.js'
 import { API_VERSION } from './api-version.js'
 import { collectMemory } from './memory.js'
-import { getActivity, getBoardStats, getCalendar, getChannels, getCommandLog, getDashboard, getKnowledge, getLogs, getOffice, getSnapshot, getStuckTasks, getTaskBoard, getTaskDetail, getUsage } from './mission-control.js'
+import { getActivity, getBoardStats, getModels, getCalendar, getChannels, getCommandLog, getDashboard, getKnowledge, getLogs, getOffice, getSnapshot, getStuckTasks, getTaskBoard, getTaskDetail, getUsage } from './mission-control.js'
 import { fetchHostTelemetry } from './host-telemetry.js'
 
 // Loopback by default: opening Ruang to a network must be a deliberate act, and the
@@ -50,6 +50,7 @@ const routes: Record<string, (now: number, privacy: Privacy) => Promise<unknown>
   '/api/dashboard': async (now, privacy) => redactDashboard(await getDashboard(now), privacy),
   '/api/tasks': async (now, privacy) => redactTasks(await getTaskBoard(now), privacy),
   '/api/board-stats': getBoardStats,
+  '/api/models': getModels,
   // Host telemetry is proxied so the agent token stays server-side and off every vendor's browser.
   '/api/host': async () => fetchHostTelemetry(),
   '/api/stuck': async (now, privacy) => redactStuck(await getStuckTasks(now), privacy),

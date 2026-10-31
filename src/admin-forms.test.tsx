@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { agentNameFrom, agentNameProblem, createAgentForm, createTaskForm, defaultBoard, taskTitleProblem } from './admin-forms.ts'
+import { agentNameFrom, agentNameProblem, createAgentForm, createTaskForm, defaultBoard, modelNote, taskTitleProblem } from './admin-forms.ts'
 
 // The forms refuse to send without a stored write token; give them one without touching storage.
 vi.mock('./write-token.ts', () => ({ readWriteToken: () => 'test-write-token' }))
@@ -97,5 +97,32 @@ describe('defaultBoard', () => {
 
   it('has nothing to pick from an empty list', () => {
     expect(defaultBoard([])).toBeUndefined()
+  })
+})
+
+describe('modelNote', () => {
+  const live = {
+    available: true,
+    models: [{ provider: 'Kunciai.id' }, { provider: 'Api.ezkielyna.store' }, { provider: 'Api.ezkielyna.store' }],
+    emptyProviders: [{ name: 'Kiyararouter.web.id' }],
+  }
+
+  it('names every provider and admits the ones with no list', () => {
+    const note = modelNote(live)
+    expect(note).toContain('3 models from 2 providers')
+    expect(note).toContain('Kunciai.id, Api.ezkielyna.store')
+    expect(note).toContain('No list for Kiyararouter.web.id')
+  })
+
+  it('says the list could not be read rather than showing an empty picker', () => {
+    expect(modelNote({ available: false, models: [], emptyProviders: [] })).toMatch(/could not be read/)
+  })
+
+  it('says so when no provider lists anything', () => {
+    expect(modelNote({ available: true, models: [], emptyProviders: [{ name: 'X' }] })).toMatch(/type the name by hand/)
+  })
+
+  it('stays quiet about missing lists when every provider has one', () => {
+    expect(modelNote({ available: true, models: [{ provider: 'A' }], emptyProviders: [] })).toBe('1 model from 1 provider: A.')
   })
 })

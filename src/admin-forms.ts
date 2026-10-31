@@ -73,6 +73,19 @@ export function defaultBoard(boards: { slug: string; current?: boolean; total?: 
   return pick?.slug
 }
 
+/**
+ * What the Model field should say about where its suggestions came from. Written so a provider
+ * that lists nothing is named as unknown rather than quietly left out.
+ */
+export function modelNote(input: { available: boolean; models: { provider: string }[]; emptyProviders: { name: string }[] }): string {
+  if (!input.available) return 'The model list could not be read, so any model name must be typed by hand.'
+  if (input.models.length === 0) return 'No provider lists any model, so type the name by hand.'
+  const providers = [...new Set(input.models.map((item) => item.provider))]
+  const count = input.models.length
+  const base = count + (count === 1 ? ' model from ' : ' models from ') + providers.length + (providers.length === 1 ? ' provider: ' : ' providers: ') + providers.join(', ') + '.'
+  return input.emptyProviders.length > 0 ? base + ' No list for ' + input.emptyProviders.map((item) => item.name).join(', ') + '.' : base
+}
+
 export function taskTitleProblem(title: string): string | undefined {
   const trimmed = title.trim()
   if (!trimmed) return 'Enter a title for the task.'
