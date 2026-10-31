@@ -73,6 +73,28 @@ export function defaultBoard(boards: { slug: string; current?: boolean; total?: 
   return pick?.slug
 }
 
+export function setModelProblem(input: { agent: string; model: string }): string | undefined {
+  if (!input.agent.trim()) return 'Choose the agent whose model you want to set.'
+  if (input.agent.trim() === 'default') return 'The default profile is protected: its model is set from the server, not here.'
+  const model = input.model.trim()
+  if (!model) return 'Choose a model.'
+  if (model.length > 200) return 'That model name is too long.'
+  // The value becomes an argv entry, so anything option-like or spaced is refused up front.
+  if (model.startsWith('-') || /\s/.test(model)) return 'A model name cannot start with a dash or contain spaces.'
+  return undefined
+}
+
+/** Points an existing profile at a model. The profile must already exist; this never creates one. */
+export async function setAgentModelForm(input: { agent: string; model: string }, request: typeof fetch = fetch): Promise<FormResult> {
+  const problem = setModelProblem(input)
+  if (problem) return { ok: false, message: problem }
+  const agent = input.agent.trim()
+  const model = input.model.trim()
+  const done = await post('/api/agents/' + encodeURIComponent(agent) + '/config', { key: 'model.default', value: model }, request)
+  if (!done.ok) return done
+  return { ok: true, message: displayLabel(agent) + ' now uses ' + model + '.' }
+}
+
 /**
  * What the Model field should say about where its suggestions came from. Written so a provider
  * that lists nothing is named as unknown rather than quietly left out.

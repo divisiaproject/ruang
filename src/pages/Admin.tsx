@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { agentNameFrom, agentNameProblem, createAgentForm, createTaskForm, defaultBoard, modelNote, taskTitleProblem, type FormResult } from '../admin-forms.ts'
+import { agentNameFrom, agentNameProblem, createAgentForm, createTaskForm, defaultBoard, modelNote, setAgentModelForm, setModelProblem, taskTitleProblem, type FormResult } from '../admin-forms.ts'
 import { displayAgentName } from '../identity.ts'
 import { usePolling } from '../polling.ts'
 import { readWriteToken, writeWriteToken } from '../write-token.ts'
@@ -123,16 +123,67 @@ function TaskForm() {
   </section>
 }
 
+
+function ModelForm() {
+  const runtime = usePolling<RuntimeSnapshot>('/api/runtime', 30_000)
+  const models = usePolling<ModelsSnapshot>('/api/models', 60_000)
+  const [agent, setAgent] = useState('')
+  const [model, setModel] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [result, setResult] = useState<FormResult>()
+
+  const profilesKnown = runtime.status === 'ready' && runtime.data.profiles.availability === 'available'
+  const profiles = profilesKnown ? runtime.data.profiles.data : []
+  const available = models.status === 'ready' && models.data.availability === 'available'
+  const options = available ? models.data.data : []
+  const chosen = profiles.find((profile) => profile.name === agent)
+  const note = modelNote({ available, models: options, emptyProviders: available ? models.data.emptyProviders : [] })
+  const problem = agent ? setModelProblem({ agent, model }) : undefined
+
+  const submit = async () => {
+    setBusy(true)
+    setResult(await setAgentModelForm({ agent, model }))
+    setBusy(false)
+  }
+  return <section className="card settings-card" aria-labelledby="agent-model-title">
+    <p className="eyebrow">MENU 3</p>
+    <h2 id="agent-model-title">Set an agent's model</h2>
+    <p className="muted">Points an existing profile at a model through <code>hermes -p &lt;name&gt; config set model.default</code>. The next session that profile starts uses it.</p>
+
+    <label className="field-label" htmlFor="model-agent">Agent</label>
+    {!profilesKnown ? <p className="file-notice">The profile list could not be read, so no agent can be chosen.</p>
+      : <select id="model-agent" className="task-action-input" value={agent} onChange={(event) => setAgent(event.target.value)}>
+        <option value="">Choose an agent</option>
+        {profiles.map((profile) => <option key={profile.name} value={profile.name} title={displayAgentName(profile.name).title}>
+          {displayAgentName(profile.name).label} · {profile.model}
+        </option>)}
+      </select>}
+    {chosen && <p className="small-note">Currently: <b>{chosen.model}</b></p>}
+
+    <label className="field-label" htmlFor="model-value">Model</label>
+    <input id="model-value" className="task-action-input" list="model-options" value={model} placeholder="Type or pick a model" onChange={(event) => setModel(event.target.value)} aria-describedby="model-value-help"/>
+    <datalist id="model-options">{options.map((item) => <option key={item.provider + '/' + item.id} value={item.id} label={item.provider}/>)}</datalist>
+    <small id="model-value-help" className="small-note">{note}</small>
+    {problem && <p className="file-notice">{problem}</p>}
+
+    <div className="task-action-row">
+      <button type="button" className="primary-button" onClick={() => void submit()} disabled={busy || Boolean(problem) || !agent || !model.trim()}>{busy ? 'Saving…' : 'Set model'}</button>
+    </div>
+    <Result result={result}/>
+  </section>
+}
+
 /** Admin-only page: the server refuses both forms for a vendor session. */
 export function Admin() {
   return <>
     <PageTitle eyebrow="OWNER ONLY" title="Admin">
-      Two forms the owner uses to run the team: create an agent, and create a task. Both are refused by the server
+      Three forms the owner uses to run the team: create an agent, set an agent's model, and create a task. Both are refused by the server
       for a vendor session, even if the vendor somehow holds the write token.
     </PageTitle>
     <div className="admin-forms">
       <TokenCard/>
       <AgentForm/>
+      <ModelForm/>
       <TaskForm/>
     </div>
   </>

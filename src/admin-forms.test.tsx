@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { agentNameFrom, agentNameProblem, createAgentForm, createTaskForm, defaultBoard, modelNote, taskTitleProblem } from './admin-forms.ts'
+import { agentNameFrom, agentNameProblem, createAgentForm, createTaskForm, defaultBoard, modelNote, setAgentModelForm, setModelProblem, taskTitleProblem } from './admin-forms.ts'
 
 // The forms refuse to send without a stored write token; give them one without touching storage.
 vi.mock('./write-token.ts', () => ({ readWriteToken: () => 'test-write-token' }))
@@ -124,5 +124,56 @@ describe('modelNote', () => {
 
   it('stays quiet about missing lists when every provider has one', () => {
     expect(modelNote({ available: true, models: [{ provider: 'A' }], emptyProviders: [] })).toBe('1 model from 1 provider: A.')
+  })
+})
+
+describe('setModelProblem', () => {
+  it('needs an agent and a model', () => {
+    expect(setModelProblem({ agent: '', model: 'x' })).toMatch(/Choose the agent/)
+    expect(setModelProblem({ agent: 'leadagent', model: '  ' })).toMatch(/Choose a model/)
+  })
+
+  it('refuses to touch the protected default profile', () => {
+    expect(setModelProblem({ agent: 'default', model: 'deepseek-v4.1-flash' })).toMatch(/protected/)
+  })
+
+  it('refuses a model name that could be read as an option or split into arguments', () => {
+    expect(setModelProblem({ agent: 'leadagent', model: '-oops' })).toMatch(/dash/)
+    expect(setModelProblem({ agent: 'leadagent', model: 'two words' })).toMatch(/spaces/)
+  })
+
+  it('accepts a normal provider-prefixed id', () => {
+    expect(setModelProblem({ agent: 'leadagent', model: 'kunciai/gpt-6.1-sol' })).toBeUndefined()
+  })
+})
+
+describe('setAgentModelForm', () => {
+  it('posts model.default to the agent config route', async () => {
+    let sent: Record<string, unknown> = {}
+    const request = (async (url: string, init: RequestInit) => {
+      sent = { url: String(url), ...JSON.parse(String(init.body)) }
+      return new Response(JSON.stringify({ ok: true }), { status: 200 })
+    }) as unknown as typeof fetch
+    const result = await setAgentModelForm({ agent: 'leadagent', model: 'minimax-m3.1-flash' }, request)
+    expect(result).toMatchObject({ ok: true, message: 'leadagent now uses minimax-m3.1-flash.' })
+    expect(sent).toEqual({ url: '/api/agents/leadagent/config', key: 'model.default', value: 'minimax-m3.1-flash' })
+  })
+
+  it('names OM instead of the raw id in its confirmation', async () => {
+    const request = (async () => new Response(JSON.stringify({ ok: true }), { status: 200 })) as unknown as typeof fetch
+    const result = await setAgentModelForm({ agent: 'leadagent', model: 'deepseek-v4.1-flash' }, request)
+    expect(result).toMatchObject({ ok: true })
+  })
+
+  it('never posts when the profile is protected', async () => {
+    let called = false
+    const request = (async () => { called = true; return new Response('{}', { status: 200 }) }) as unknown as typeof fetch
+    expect(await setAgentModelForm({ agent: 'default', model: 'x' }, request)).toMatchObject({ ok: false })
+    expect(called).toBe(false)
+  })
+
+  it('passes the server refusal through verbatim', async () => {
+    const result = await setAgentModelForm({ agent: 'ghost', model: 'x' }, stub(404, { error: 'Profile "ghost" does not exist.' }))
+    expect(result).toMatchObject({ ok: false, message: 'Profile "ghost" does not exist.' })
   })
 })
