@@ -51,8 +51,8 @@ say "tests"
 # "Errors 1" and exits 1 even though every collected test passed.
 # CI runs Node 22, so this only happens locally. Fail on a real failed test,
 # not on the environment mismatch, but say so loudly.
-npm test > /tmp/ruang-publish-test.log 2>&1
-test_status=$?
+npm test > /tmp/ruang-publish-test.log 2>&1 || test_status=$?
+test_status=${test_status:-0}
 tail -8 /tmp/ruang-publish-test.log
 if [ "$test_status" -ne 0 ]; then
   failed_tests="$(grep -E '^ *Tests +' /tmp/ruang-publish-test.log | tail -1)"
