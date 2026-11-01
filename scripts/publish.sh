@@ -95,7 +95,8 @@ sha256sum "$TARBALL"
 # A stale tarball is the failure mode this whole pipeline keeps hitting.
 say "package sanity"
 missing=0
-top_level="$(tar tzf "$TARBALL" | head -1 | cut -d/ -f1)"
+tar tzf "$TARBALL" > /tmp/ruang-publish-tarball-list.txt
+top_level="$(cut -d/ -f1 /tmp/ruang-publish-tarball-list.txt | head -1)"
 if [ "$top_level" != "$(basename "$REPO_DIR")" ]; then
   echo "Unexpected top-level entry in tarball: '$top_level'"
   missing=1
@@ -105,7 +106,7 @@ for required in \
   ruang_build/src/pages/Admin.tsx \
   ruang_build/server/index.ts
 do
-  if ! tar tzf "$TARBALL" | grep -qx "$required"; then
+  if ! grep -qx "$required" /tmp/ruang-publish-tarball-list.txt; then
     echo "MISSING from tarball: $required"
     missing=1
   fi
