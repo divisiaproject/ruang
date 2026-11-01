@@ -46,7 +46,32 @@ say "lint"
 npm run lint
 
 say "tests"
-npm test
+# jsdom 30 (needed by src/office-dialog-focus.test.tsx) requires Node >= 22.22,
+# so on Node 20 that one file cannot even be collected. Vitest then reports
+# "Errors 1" and exits 1 even though every collected test passed.
+# CI runs Node 22, so this only happens locally. Fail on a real failed test,
+# not on the environment mismatch, but say so loudly.
+npm test > /tmp/ruang-publish-test.log 2>&1
+test_status=$?
+tail -8 /tmp/ruang-publish-test.log
+if [ "$test_status" -ne 0 ]; then
+  failed_tests="$(grep -E '^ *Tests +' /tmp/ruang-publish-test.log | tail -1)"
+  if echo "$failed_tests" | grep -qE '[0-9]+ failed'; then
+    echo ""
+    echo "TESTS FAILED - refusing to publish."
+    exit 1
+  fi
+  if grep -q 'markAsUncloneable is not a function' /tmp/ruang-publish-test.log; then
+    echo ""
+    echo "NOTE: the jsdom environment could not be loaded (Node $(node --version))."
+    echo "      Every collected test passed, but src/office-dialog-focus.test.tsx"
+    echo "      was not run. CI uses Node 22 and will cover it."
+  else
+    echo ""
+    echo "Test run failed for an unknown reason - refusing to publish."
+    exit 1
+  fi
+fi
 
 say "build"
 npm run build
