@@ -11,7 +11,7 @@
 Works on macOS, Linux and Windows through WSL2. You need the Hermes Agent CLI (`hermes`) installed; `opencode` is optional. The installer downloads its own Node.js if you do not have Node.js 20 or newer.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yugienugraha/ruang/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/divisiaproject/ruang/main/install.sh | bash
 ```
 
 Then start it and open http://127.0.0.1:3001:
@@ -21,23 +21,23 @@ ruang                        # or: ruang --port 3005
 ```
 
 - **Run it in the background, and at boot (Linux):** add `--service` to install a systemd user service:
-  `curl -fsSL https://raw.githubusercontent.com/yugienugraha/ruang/main/install.sh | bash -s -- --service`
+  `curl -fsSL https://raw.githubusercontent.com/divisiaproject/ruang/main/install.sh | bash -s -- --service`
   To keep it running after you log out, also run `loginctl enable-linger $USER`.
 - **Update:** run the install command again.
 - **Remove:** add `--uninstall` (`... | bash -s -- --uninstall`).
 - **Other options:** `--version v0.2.0` installs a specific release; `--from-source` builds the latest `main` (needs `git`). See `install.sh --help`.
 - **On a server:** Ruang listens on `127.0.0.1` only. From your laptop, run `ssh -L 3001:127.0.0.1:3001 user@server`, then open http://127.0.0.1:3001.
 
-Everything goes into `~/.local/share/ruang`, plus the `ruang` command in `~/.local/bin`. Installs made under the project's earlier names (`mission-control`, `majujaya`) are cleaned up automatically. No sudo is used and nothing is installed system-wide. Prefer to read the script before running it? `curl -fsSL https://raw.githubusercontent.com/yugienugraha/ruang/main/install.sh -o install.sh`, read it, then `bash install.sh`.
+Everything goes into `~/.local/share/ruang`, plus the `ruang` command in `~/.local/bin`. Installs made under the project's earlier names (`mission-control`, `majujaya`) are cleaned up automatically. No sudo is used and nothing is installed system-wide. Prefer to read the script before running it? `curl -fsSL https://raw.githubusercontent.com/divisiaproject/ruang/main/install.sh -o install.sh`, read it, then `bash install.sh`.
 
-**With your own Node.js 20+:** download `ruang.tgz` from the [latest release](https://github.com/yugienugraha/ruang/releases/latest) and run `npm install -g ./ruang.tgz`. Once the package is on npm this becomes `npm install -g ruang` (or `npx ruang`).
+**With your own Node.js 20+:** download `ruang.tgz` from the [latest release](https://github.com/divisiaproject/ruang/releases/latest) and run `npm install -g ./ruang.tgz`. Once the package is on npm this becomes `npm install -g ruang` (or `npx ruang`).
 
 ## Development
 
 Requires Node.js 20+ and `hermes` on the `PATH` of the shell that starts the server.
 
 ```bash
-git clone https://github.com/yugienugraha/ruang.git
+git clone https://github.com/divisiaproject/ruang.git
 cd ruang
 npm install
 npm run dev        # API on 127.0.0.1:3001 + Vite UI (open the URL Vite prints, usually http://localhost:5173)
@@ -250,4 +250,4 @@ The Hermes root follows Hermes's own rules (`HERMES_HOME`, default `~/.hermes`);
 
 ## License
 
-[MIT](LICENSE) © yugienugraha. Contributions are accepted under the same license.
+[MIT](LICENSE) © yugienugraha, with modifications © divisiaproject. Ruang is a fork of [yugienugraha/ruang](https://github.com/yugienugraha/ruang); contributions are accepted under the same license.

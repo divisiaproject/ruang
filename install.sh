@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Ruang (Hermes 3D Virtual Office) installer for macOS, Linux and WSL2.
 #
-#   curl -fsSL https://raw.githubusercontent.com/yugienugraha/ruang/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/divisiaproject/ruang/main/install.sh | bash
 #
 # Installs the latest release into ~/.local/share/ruang and a `ruang` command into
 # ~/.local/bin. Nothing is installed system-wide and sudo is never used. If no
@@ -19,7 +19,7 @@
 
 set -euo pipefail
 
-REPO="yugienugraha/ruang"
+REPO="divisiaproject/ruang"
 PACKAGE="ruang"
 COMMAND="ruang"
 NODE_MAJOR_MIN=20
@@ -40,7 +40,7 @@ usage() {
   cat <<'HELP'
 Ruang · Hermes 3D Virtual Office installer (macOS, Linux, WSL2)
 
-  curl -fsSL https://raw.githubusercontent.com/yugienugraha/ruang/main/install.sh | bash
+  curl -fsSL https://raw.githubusercontent.com/divisiaproject/ruang/main/install.sh | bash
   curl -fsSL .../install.sh | bash -s -- --service
 
 Options:

@@ -6,9 +6,9 @@
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yugienugraha/ruang.git"
+    "url": "git+https://github.com/divisiaproject/ruang.git"
   },
-  "homepage": "https://github.com/yugienugraha/ruang#readme",
+  "homepage": "https://github.com/divisiaproject/ruang#readme",
   "bin": {
     "ruang": "bin/ruang.js"
   },
