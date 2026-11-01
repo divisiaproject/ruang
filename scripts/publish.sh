@@ -79,13 +79,15 @@ npm run build
 say "package"
 # Mirror the layout the host expects: a single top-level directory named
 # ruang_build, so the host can extract with --strip-components=1.
+# The archive must be created from the PARENT of the repo, otherwise the
+# top-level entry would be "." instead of "ruang_build".
 rm -f "$TARBALL"
 tar czf "$TARBALL" \
   --exclude='ruang_build/node_modules' \
   --exclude='ruang_build/dist' \
   --exclude='ruang_build/build' \
   --exclude='ruang_build/.git' \
-  ruang_build
+  -C "$(dirname "$REPO_DIR")" "$(basename "$REPO_DIR")"
 ls -lh "$TARBALL"
 sha256sum "$TARBALL"
 
@@ -93,6 +95,11 @@ sha256sum "$TARBALL"
 # A stale tarball is the failure mode this whole pipeline keeps hitting.
 say "package sanity"
 missing=0
+top_level="$(tar tzf "$TARBALL" | head -1 | cut -d/ -f1)"
+if [ "$top_level" != "$(basename "$REPO_DIR")" ]; then
+  echo "Unexpected top-level entry in tarball: '$top_level'"
+  missing=1
+fi
 for required in \
   ruang_build/package.json \
   ruang_build/src/pages/Admin.tsx \
