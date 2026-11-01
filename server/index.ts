@@ -5,6 +5,7 @@ import express, { type NextFunction, type Request, type Response } from 'express
 import { alwaysHiddenFor, excludedFor, FolderError, listFolder, publicAgent, readFolderFile, resolveAgentFolders } from './folders.js'
 import { installAccess } from './access.js'
 import { installAgentWrites } from './agents-write.js'
+import { installExecTerminal } from './exec-terminal.js'
 import { installKanbanWrites } from './kanban-write.js'
 import { redactActivity, redactCalendar, redactDashboard, redactLogs, redactMemory, redactOffice, redactStuck, redactTasks, redactUsage } from './privacy.js'
 import { installProfileLock, isHidden, type Privacy } from './profile-lock.js'
@@ -39,6 +40,7 @@ const roleOf = installAccess(app)
 // Registered with the role check so `admin` may write and `vendor` may not.
 installAgentWrites(app, roleOf)
 installKanbanWrites(app, roleOf)
+installExecTerminal(app, roleOf)
 // Optional profile lock (off by default): a PIN withholds the private data of chosen agents.
 const privacyOf = installProfileLock(app)
 

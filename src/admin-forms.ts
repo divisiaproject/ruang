@@ -127,3 +127,29 @@ export async function createTaskForm(input: { title: string; board: string; assi
   const assigned = input.assignee?.trim()
   return { ok: true, message: 'Task created' + (assigned ? ' and assigned to ' + displayLabel(assigned) + '.' : '.') }
 }
+
+/** One terminal line through the owner-only exec gate. Returns raw text, not FormResult. */
+export type ExecResult = { ok: true; output: string } | { ok: false; message: string }
+
+export async function execTerminalForm(command: string, request: typeof fetch = fetch): Promise<ExecResult> {
+  const token = readWriteToken()
+  if (!token) return { ok: false, message: 'No write token stored yet. Add one below first.' }
+  if (!command.trim()) return { ok: false, message: 'Type a hermes command first.' }
+  let response: Response
+  try {
+    response = await request('/api/exec', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-ruang-request': '1', authorization: 'Bearer ' + token },
+      body: JSON.stringify({ command }),
+    })
+  } catch {
+    return { ok: false, message: 'The browser could not complete the request. Check the connection, then reload this page.' }
+  }
+  const payload = await response.json().catch(() => undefined) as Record<string, unknown> | undefined
+  if (!response.ok) {
+    const detail = typeof payload?.error === 'string' ? payload.error : 'The server answered HTTP ' + response.status + '.'
+    return { ok: false, message: detail }
+  }
+  const output = typeof payload?.output === 'string' ? payload.output : ''
+  return { ok: true, output: output || '(no output)' }
+}

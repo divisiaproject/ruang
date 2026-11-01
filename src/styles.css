@@ -874,6 +874,14 @@ aside.office-panel { background: color-mix(in srgb, var(--surface) 96%, transpar
 .admin-forms .small-note { display: block; margin-top: 7px; }
 .admin-forms .file-notice, .admin-forms .form-success { margin-top: 12px; }
 
+/* Owner terminal: one command line, scrolling log, monospace output. */
+.terminal-log { display: grid; gap: 12px; margin-top: 6px; max-height: 480px; overflow-y: auto; }
+.terminal-entry { background: var(--c-0b0e0c); border: 1px solid var(--c-313831); border-radius: 6px; padding: 10px 12px; }
+.terminal-command { color: var(--c-cbd1c9); font: 12px ui-monospace, monospace; overflow-wrap: anywhere; }
+.terminal-output, .terminal-error { font: 12px ui-monospace, monospace; line-height: 1.5; margin: 8px 0 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.terminal-output { color: var(--c-9ea79e); }
+.terminal-error { color: var(--c-eab474); }
+
 /* A failed unit carries its reason: name, exit code, Active line, last journal error. */
 .stuck-list .failed-unit { display: block; padding-bottom: 12px; }
 .stuck-list .failed-unit + .failed-unit { border-top: 1px solid var(--c-313831); padding-top: 12px; }

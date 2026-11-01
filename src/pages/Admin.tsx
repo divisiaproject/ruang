@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { agentNameFrom, agentNameProblem, createAgentForm, createTaskForm, defaultBoard, modelNote, setAgentModelForm, setModelProblem, taskTitleProblem, type FormResult } from '../admin-forms.ts'
+import { agentNameFrom, agentNameProblem, createAgentForm, createTaskForm, defaultBoard, execTerminalForm, modelNote, setAgentModelForm, setModelProblem, taskTitleProblem, type ExecResult, type FormResult } from '../admin-forms.ts'
 import { displayAgentName } from '../identity.ts'
 import { usePolling } from '../polling.ts'
 import { readWriteToken, writeWriteToken } from '../write-token.ts'
@@ -173,6 +173,41 @@ function ModelForm() {
   </section>
 }
 
+/** Owner-only terminal: runs a read-scoped hermes command on this machine. */
+function TerminalForm() {
+  const [command, setCommand] = useState('')
+  const [lines, setLines] = useState<{ command: string; result: ExecResult }[]>([])
+  const [busy, setBusy] = useState(false)
+
+  const run = async () => {
+    const text = command.trim()
+    if (!text || busy) return
+    setBusy(true)
+    const result = await execTerminalForm(text)
+    setBusy(false)
+    setLines((prev) => [...prev.slice(-29), { command: text, result }])
+    setCommand('')
+  }
+
+  return <section className="card settings-card" aria-labelledby="terminal-title">
+    <p className="eyebrow">MENU 4</p>
+    <h2 id="terminal-title">Terminal</h2>
+    <p className="muted">One hermes line at a time, run on this machine as the server user. Read-scoped: config get, model list, profile list/show, kanban show/list/boards/get, cron list/show, chat, --help/--version. Anything that creates, changes or deletes stays on the forms above.</p>
+    <label className="field-label" htmlFor="terminal-input">Command</label>
+    <input id="terminal-input" className="task-action-input" value={command} placeholder='hermes config get model' onChange={(event) => setCommand(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void run() }} autoComplete="off" spellCheck={false}/>
+    <div className="task-action-row">
+      <button type="button" className="primary-button" onClick={() => void run()} disabled={busy || !command.trim()}>{busy ? 'Running…' : 'Run'}</button>
+      {lines.length > 0 && <button type="button" className="refresh-button" onClick={() => setLines([])}>Clear</button>}
+    </div>
+    {lines.length > 0 && <div className="terminal-log" role="log" aria-label="Terminal output">
+      {lines.map((line, index) => <div key={index} className="terminal-entry">
+        <div className="terminal-command">$ {line.command}</div>
+        <pre className={line.result.ok ? 'terminal-output' : 'terminal-error'}>{line.result.ok ? line.result.output : line.result.message}</pre>
+      </div>)}
+    </div>}
+  </section>
+}
+
 /** Admin-only page: the server refuses both forms for a vendor session. */
 export function Admin() {
   return <>
@@ -185,6 +220,7 @@ export function Admin() {
       <AgentForm/>
       <ModelForm/>
       <TaskForm/>
+      <TerminalForm/>
     </div>
   </>
 }

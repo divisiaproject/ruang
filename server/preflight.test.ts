@@ -6,6 +6,7 @@ import express from 'express'
 import { afterEach, describe, expect, it } from 'vitest'
 import { AccessStore, installAccess } from './access.js'
 import { installAgentWrites } from './agents-write.js'
+import { installExecTerminal } from './exec-terminal.js'
 import { installKanbanWrites } from './kanban-write.js'
 
 // A locked Ruang still has to answer the browser's preflight, or every write form dies
@@ -22,6 +23,7 @@ async function locked() {
   const app = express()
   installAgentWrites(app)
   installKanbanWrites(app)
+  installExecTerminal(app)
   installAccess(app, store)
   app.post('/api/agents', (_request, response) => { response.json({ ok: true }) })
   app.get('/api/tasks', (_request, response) => { response.json({ ok: true }) })
@@ -57,7 +59,7 @@ describe('CORS preflight through the write layers', () => {
   it('answers OPTIONS on the agent and kanban write routes', async () => {
     process.env.RUANG_WRITE_TOKEN = 'preflight-test-token'
     const base = await locked()
-    for (const path of ['/api/agents', '/api/kanban/default/tasks']) {
+    for (const path of ['/api/agents', '/api/kanban/default/tasks', '/api/exec']) {
       const response = await fetch(`${base}${path}`, { method: 'OPTIONS', headers: { origin: base, 'access-control-request-method': 'POST' } })
       expect(response.status, path).not.toBe(401)
     }
