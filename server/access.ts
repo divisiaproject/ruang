@@ -57,7 +57,7 @@ export function derive(code: string, salt: Buffer): Promise<Buffer> {
 
 function isAccessFile(value: unknown): value is AccessFile {
   const record = value as Record<string, unknown> | null
-  if (!Boolean(record) || record!.version !== 1) return false
+  if (!record || record.version !== 1) return false
   if (!['salt', 'hash', 'secret', 'createdAt'].every((key) => typeof record![key] === 'string' && (record![key] as string).length > 0)) return false
   // A vendor code is all-or-nothing: half a pair would silently drop the role gate.
   const vendor = [record!.vendorSalt, record!.vendorHash].filter((item) => typeof item === 'string' && item.length > 0)
