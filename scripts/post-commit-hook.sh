@@ -11,7 +11,7 @@ if [ "${RUANG_NO_AUTOPUBLISH:-0}" = "1" ]; then
   exit 0
 fi
 
-REPO_DIR="$(git rev-parse --show-toplevel 2>/dev/null || cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+REPO_DIR="$(git rev-parse --show-toplevel 2>/dev/null || (cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd))"
 LOG="${RUANG_PUBLISH_LOG:-/tmp/ruang-publish.log}"
 
 {
