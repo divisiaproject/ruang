@@ -11,7 +11,13 @@ if [ "${RUANG_NO_AUTOPUBLISH:-0}" = "1" ]; then
   exit 0
 fi
 
-REPO_DIR="$(git rev-parse --show-toplevel 2>/dev/null || (cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd))"
+# The hook lives in .git/hooks, so the repo root is two levels up from the
+# hook file itself. Prefer git, fall back to the path only if git is missing.
+HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="$(git rev-parse --show-toplevel 2>/dev/null)"
+if [ -z "$REPO_DIR" ]; then
+  REPO_DIR="$(cd "$HOOK_DIR/../.." && pwd)"
+fi
 LOG="${RUANG_PUBLISH_LOG:-/tmp/ruang-publish.log}"
 
 {
