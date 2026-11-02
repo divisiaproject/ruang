@@ -833,6 +833,22 @@ aside.office-panel { background: color-mix(in srgb, var(--surface) 96%, transpar
 .task-report-body { flex: 1 1 100%; font: 13px/1.5 var(--font-body, system-ui); min-height: 68px; resize: vertical; }
 .task-report { border-top: 1px solid var(--border); margin-top: 20px; padding-top: 16px; }
 
+/* Task print: a read-only print bar. The button is hidden in print output. */
+.task-print-bar { align-items: center; border-top: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; padding-top: 16px; }
+
+/* Print: only the open task dialog prints; chrome, controls, and app shell stay out. */
+@media print {
+  body { background: #fff; }
+  body * { visibility: hidden; }
+  .office-backdrop { background: none; display: block; inset: auto; padding: 0; position: static; }
+  .office-backdrop .office-detail { border: 0; box-shadow: none; margin: 0; max-height: none; overflow: visible; width: 100%; }
+  .office-detail.task-detail, .office-detail.task-detail * { visibility: visible; }
+  .office-detail.task-detail { background: #fff; color: #000; left: 0; position: absolute; top: 0; }
+  .office-detail.task-detail .task-text { background: none; border-color: #999; color: #000; max-height: none; overflow: visible; }
+  .no-print, .no-print * { display: none !important; }
+  .task-text, .task-timeline li, .task-section { break-inside: avoid; }
+}
+
 /* Project Room: where deliverables wait on a review decision. Same pixel palette as
    the Lounge, so it reads as part of the office rather than a new art style. */
 .flow-project { align-items: end; display: flex; flex-wrap: wrap; gap: 14px; position: relative; z-index: 3; }
