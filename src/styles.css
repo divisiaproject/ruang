@@ -815,6 +815,22 @@ aside.office-panel { background: color-mix(in srgb, var(--surface) 96%, transpar
 .health-facts { display: flex; flex-wrap: wrap; gap: 18px; margin: 0; }
 .health-facts dt { color: var(--text-muted); font: 10px ui-monospace, monospace; letter-spacing: .06em; margin-bottom: 4px; text-transform: uppercase; }
 .health-facts dd { color: var(--text); font: 14px ui-monospace, monospace; margin: 0; }
+
+/* Board chart: pie and vertical bar share the legend style of the horizontal bar. */
+.health-chart-wrap { display: grid; gap: 10px; }
+.health-pie { height: 120px; width: 120px; }
+.health-pie-track { fill: none; stroke: var(--border); stroke-width: 6; }
+.health-pie-slice { stroke-linecap: butt; }
+.health-pie-slice.tone-good { stroke: var(--c-4fb986); }
+.health-pie-slice.tone-info { stroke: var(--c-5b9bd5); }
+.health-pie-slice.tone-bad { stroke: var(--c-d9695a); }
+.health-pie-slice.tone-muted { stroke: var(--c-5c655d); }
+.health-pie-slice.tone-unknown { stroke: var(--c-d59a4f); }
+.health-vbar { align-items: end; display: flex; gap: 8px; min-height: 110px; }
+.health-vbar-col { align-items: center; display: grid; flex: 1; gap: 4px; grid-template-rows: auto 80px auto; justify-items: center; min-width: 0; }
+.health-vbar-value { color: var(--text); font: 12px ui-monospace, monospace; }
+.health-vbar-fill { border-radius: 3px 3px 0 0; align-self: end; min-height: 2px; width: 70%; }
+.health-vbar-label { color: var(--text-muted); font: 10px ui-monospace, monospace; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .health-stuck { border-top: 1px solid var(--border); margin-top: 32px; padding-top: 20px; }
 .health-stuck > h2 { align-items: center; display: flex; gap: 8px; font-size: 22px; letter-spacing: -.04em; margin-bottom: 6px; }
 .health-stuck .data-list { border-top: 0; margin-top: 12px; }

@@ -1,9 +1,10 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { displayAgentName } from '../identity.ts'
-import { formatDateTime, orderedStatuses, statusTone } from '../format.ts'
+import { formatDateTime } from '../format.ts'
 import { usePolling } from '../polling.ts'
 import type { BoardStatsSnapshot, KanbanStatusCounts, StuckSnapshot, StuckTask } from '../types.ts'
 import { EmptyState, PageTitle, SourceStatus, Unavailable } from '../ui.tsx'
+import { BOARD_CHART_MODES, BoardChart, type BoardChartMode } from '../board-chart.tsx'
 
 /** "983s" is unreadable on a dashboard; turn seconds into the largest useful unit. */
 export function humanDuration(seconds: number | undefined): string | undefined {
@@ -14,29 +15,8 @@ export function humanDuration(seconds: number | undefined): string | undefined {
   return `${Math.floor(seconds / 86_400)}d`
 }
 
-/** A status breakdown as one stacked bar plus a legend, so shape is visible at a glance. */
-function StatusBar({ counts }: { counts: KanbanStatusCounts }) {
-  const statuses = orderedStatuses(Object.keys(counts.byStatus))
-  const total = counts.total || 0
-  const label = statuses.map((status) => `${counts.byStatus[status] ?? 0} ${status}`).join(', ')
-  return (
-    <div className="health-bar-wrap">
-      <div className="health-bar" role="img" aria-label={`${total} tasks: ${label}`}>
-        {statuses.map((status) => {
-          const count = counts.byStatus[status] ?? 0
-          return count === 0 ? null : <span key={status} className={`health-seg tone-${statusTone(status)}`} style={{ flexGrow: count }} title={`${count} ${status}`} />
-        })}
-      </div>
-      <ul className="health-legend">
-        {statuses.map((status) => (
-          <li key={status}><span className={`badge ${statusTone(status)}`}>{status}</span> {counts.byStatus[status] ?? 0}</li>
-        ))}
-      </ul>
-    </div>
-  )
-}
-
-function BoardCard({ slug, counts, stuckCount }: { slug: string; counts: KanbanStatusCounts; stuckCount: number }) {
+/** One board card: the status shape in the chosen chart mode, plus key facts. */
+function BoardCard({ slug, counts, stuckCount, mode }: { slug: string; counts: KanbanStatusCounts; stuckCount: number; mode: BoardChartMode }) {
   const oldest = humanDuration(counts.oldestReadySeconds)
   const slow = counts.oldestReadySeconds !== undefined && counts.oldestReadySeconds > 48 * 3600
   return (
@@ -46,7 +26,7 @@ function BoardCard({ slug, counts, stuckCount }: { slug: string; counts: KanbanS
         <span className="chip">{counts.total} task{counts.total === 1 ? '' : 's'}</span>
         {stuckCount > 0 && <span className="badge bad">{stuckCount} needs attention</span>}
       </header>
-      {counts.total === 0 ? <p className="muted">No tasks on this board yet.</p> : <StatusBar counts={counts} />}
+      {counts.total === 0 ? <p className="muted">No tasks on this board yet.</p> : <BoardChart counts={counts} mode={mode} />}
       <dl className="health-facts">
         {oldest && <div><dt>Oldest waiting in ready</dt><dd className={slow ? 'text-bad' : ''}>{oldest}</dd></div>}
         <div><dt>Blocked</dt><dd className={counts.byStatus.blocked ? 'text-bad' : ''}>{counts.byStatus.blocked ?? 0}</dd></div>
@@ -77,6 +57,8 @@ function StuckList({ tasks }: { tasks: StuckTask[] }) {
 export function ProjectHealth() {
   const statsRequest = usePolling<BoardStatsSnapshot>('/api/board-stats')
   const stuckRequest = usePolling<StuckSnapshot>('/api/stuck')
+  /** One chart shape for the whole page; bar horizontal is the original view. */
+  const [mode, setMode] = useState<BoardChartMode>('bar-h')
 
   const stats = statsRequest.status === 'ready' ? statsRequest.data : undefined
   const stuck = stuckRequest.status === 'ready' ? stuckRequest.data : undefined
@@ -106,9 +88,22 @@ export function ProjectHealth() {
       {counts && (boards.length === 0
         ? <EmptyState title="No boards reported">Hermes did not report any Kanban boards. Create one with <code>hermes kanban boards create &lt;slug&gt;</code>.</EmptyState>
         : <>
+            <div className="toolbar" role="group" aria-label="Pilih bentuk chart">
+              {BOARD_CHART_MODES.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  className={`refresh-button${mode === option.value ? ' active' : ''}`}
+                  aria-pressed={mode === option.value}
+                  onClick={() => setMode(option.value)}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
             <section className="health-grid">
               {boards.map(([slug, boardCounts]) => (
-                <BoardCard key={slug} slug={slug} counts={boardCounts} stuckCount={stuckByBoard.get(slug) ?? 0}/>
+                <BoardCard key={slug} slug={slug} counts={boardCounts} stuckCount={stuckByBoard.get(slug) ?? 0} mode={mode}/>
               ))}
             </section>
 
